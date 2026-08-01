@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+// highlight.js 代码高亮主题：放在 layout 中作为普通 CSS import，
+// 避免在 Tailwind 入口 CSS 里用 @import 触发 Turbopack/PostCSS worker 偶发崩溃
+import "highlight.js/styles/github-dark.css";
 import "./globals.css";
 
 const geistSans = Geist({
