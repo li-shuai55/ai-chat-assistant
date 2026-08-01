@@ -30,7 +30,7 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
   const isSidebarOpen = useChatStore((state) => state.isSidebarOpen);
   const toggleSidebar = useChatStore((state) => state.toggleSidebar);
 
-  const { messages, sendMessage, status, stop, error } = useChat({
+  const { messages, sendMessage, status, stop, error, regenerate } = useChat({
     id: session.id,
     transport,
     messages: session.messages,
@@ -62,6 +62,15 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
     await sendMessage({ text });
   };
 
+  /**
+   * 重新生成指定 assistant 消息的回复。
+   * 不传 messageId 时 AI SDK 默认重新生成最后一条 assistant 消息；
+   * 这里显式传入最后一条 assistant 消息的 id，使行为与 UI 入口对应。
+   */
+  const handleRegenerate = async (messageId: string) => {
+    await regenerate({ messageId });
+  };
+
   return (
     <div className="flex h-full flex-col bg-gray-50">
       {/* Header */}
@@ -80,7 +89,13 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
         <div className="h-9 w-9" />
       </div>
 
-      <ChatMessageList messages={messages} error={error} isLoading={isLoading} />
+      <ChatMessageList
+        messages={messages}
+        error={error}
+        isLoading={isLoading}
+        onRegenerate={handleRegenerate}
+        isRegenerating={isLoading}
+      />
 
       <ChatInput
         onSubmit={handleSubmit}

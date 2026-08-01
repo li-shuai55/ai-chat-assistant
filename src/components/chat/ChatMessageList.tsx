@@ -12,12 +12,18 @@ interface ChatMessageListProps {
   messages: UIMessage[];
   error?: Error | null;
   isLoading?: boolean;
+  /** 重新生成回调：对最后一条 assistant 消息传入 */
+  onRegenerate?: (messageId: string) => void;
+  /** 是否处于重新生成中：用于禁用按钮 */
+  isRegenerating?: boolean;
 }
 
 export function ChatMessageList({
   messages,
   error,
   isLoading,
+  onRegenerate,
+  isRegenerating,
 }: ChatMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -25,6 +31,10 @@ export function ChatMessageList({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+
+  // 找到最后一条 assistant 消息的 id，仅对该消息展示“重新生成”按钮
+  const lastAssistantMessageId =
+    [...messages].reverse().find((message) => message.role === 'assistant')?.id ?? null;
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-6">
@@ -37,7 +47,17 @@ export function ChatMessageList({
         )}
 
         {messages.map((message) => (
-          <ChatMessage key={message.id} message={message} />
+          <ChatMessage
+            key={message.id}
+            message={message}
+            // 仅对最后一条 assistant 消息暴露重新生成入口，避免历史消息反复触发
+            onRegenerate={
+              message.id === lastAssistantMessageId
+                ? () => onRegenerate?.(message.id)
+                : undefined
+            }
+            isRegenerating={isRegenerating}
+          />
         ))}
 
         {/* 助手尚未返回首段内容时，显示打字动画 */}

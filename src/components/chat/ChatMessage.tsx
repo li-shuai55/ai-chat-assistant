@@ -12,13 +12,17 @@ import React, { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, RefreshCw } from 'lucide-react';
 import type { UIMessage } from 'ai';
 import { cn } from '@/src/lib/utils';
 
 interface ChatMessageProps {
   /** AI SDK 的 UI 消息对象 */
   message: UIMessage;
+  /** 重新生成回调：仅对需要展示“重新生成”按钮的 assistant 消息传入 */
+  onRegenerate?: () => void;
+  /** 是否处于生成中：用于禁用重新生成按钮，避免重复触发 */
+  isRegenerating?: boolean;
 }
 
 /** 提取消息 parts 中的全部文本片段（AI SDK UI Message 结构） */
@@ -94,15 +98,15 @@ function CodeCopyButton({ code }: { code: string }) {
  * 通过 Tailwind Typography 的 prose 类控制段落、列表、标题间距，通过自定义 pre/code
  * 组件实现深色代码块背景与复制按钮。
  */
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onRegenerate, isRegenerating }: ChatMessageProps) {
   const text = getMessageText(message);
   const isUser = message.role === 'user';
 
   return (
     <div
       className={cn(
-        'flex w-full',
-        isUser ? 'justify-end' : 'justify-start'
+        'flex w-full flex-col',
+        isUser ? 'items-end' : 'items-start'
       )}
     >
       <div
@@ -161,6 +165,22 @@ export function ChatMessage({ message }: ChatMessageProps) {
           </div>
         )}
       </div>
+
+      {/* AI 消息操作栏：仅当传入 onRegenerate 时展示重新生成按钮 */}
+      {!isUser && onRegenerate && (
+        <div className="mt-1">
+          <button
+            type="button"
+            onClick={onRegenerate}
+            disabled={isRegenerating}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="重新生成"
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', isRegenerating && 'animate-spin')} />
+            重新生成
+          </button>
+        </div>
+      )}
     </div>
   );
 }
