@@ -7,6 +7,7 @@
 import { useEffect, useRef } from 'react';
 import type { UIMessage } from 'ai';
 import { ChatMessage } from './ChatMessage';
+import { ChatError } from './ChatError';
 
 interface ChatMessageListProps {
   messages: UIMessage[];
@@ -16,6 +17,8 @@ interface ChatMessageListProps {
   onRegenerate?: (messageId: string) => void;
   /** 是否处于重新生成中：用于禁用按钮 */
   isRegenerating?: boolean;
+  /** 错误重试回调：点击“重试”时触发 */
+  onRetry?: () => void;
 }
 
 export function ChatMessageList({
@@ -24,6 +27,7 @@ export function ChatMessageList({
   isLoading,
   onRegenerate,
   isRegenerating,
+  onRetry,
 }: ChatMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -73,11 +77,13 @@ export function ChatMessageList({
           </div>
         )}
 
-        {/* 流式请求出错时展示错误信息 */}
+        {/* 流式请求出错时展示友好提示，并提供重试入口 */}
         {error && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-center text-sm text-red-600">
-            出错了：{error.message}
-          </div>
+          <ChatError
+            error={error}
+            onRetry={onRetry}
+            isRetrying={isRegenerating}
+          />
         )}
 
         <div ref={bottomRef} />

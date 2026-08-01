@@ -13,6 +13,14 @@ import { useChatStore } from '@/src/stores/chatStore';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
 
+/** 提取 UI 消息中的文本内容 */
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text)
+    .join('');
+}
+
 interface ChatAreaProps {
   /** 当前活跃会话（其消息用于初始化 useChat 并回写持久化） */
   session: ChatSession;
@@ -34,6 +42,10 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
     id: session.id,
     transport,
     messages: session.messages,
+    // 客户端发生错误时记录日志，便于排查网络或 API 问题
+    onError: (err) => {
+      console.error('Chat client error:', err);
+    },
     // 流式结束：全量回写消息，并用首条用户消息自动命名会话
     onFinish: ({ messages: finishedMessages }) => {
       updateSessionMessages(session.id, finishedMessages);
@@ -71,6 +83,25 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
     await regenerate({ messageId });
   };
 
+  /**
+   * 错误重试：根据最后一条消息的角色决定重试策略。
+   * - 最后一条是 assistant：调用 regenerate 重新生成该回复
+   * - 最后一条是 user：提取文本后重新发送用户消息
+   */
+  const handleRetry = async () => {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return;
+
+    if (lastMessage.role === 'assistant') {
+      await regenerate({ messageId: lastMessage.id });
+    } else if (lastMessage.role === 'user') {
+      const text = getMessageText(lastMessage);
+      if (text.trim()) {
+        await sendMessage({ text });
+      }
+    }
+  };
+
   return (
     <div className="flex h-full flex-col bg-gray-50">
       {/* Header */}
@@ -95,6 +126,7 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
         isLoading={isLoading}
         onRegenerate={handleRegenerate}
         isRegenerating={isLoading}
+        onRetry={handleRetry}
       />
 
       <ChatInput
