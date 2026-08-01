@@ -35,6 +35,7 @@ interface ChatAreaProps {
 export function ChatArea({ session, transport }: ChatAreaProps) {
   const updateSessionMessages = useChatStore((state) => state.updateSessionMessages);
   const maybeAutoTitle = useChatStore((state) => state.maybeAutoTitle);
+  const touchSession = useChatStore((state) => state.touchSession);
   const isSidebarOpen = useChatStore((state) => state.isSidebarOpen);
   const toggleSidebar = useChatStore((state) => state.toggleSidebar);
 
@@ -60,7 +61,8 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
     messagesRef.current = messages;
   });
 
-  // 卸载（切换会话/关闭页面）时把内存中的最新消息回写 store
+  // 卸载（切换会话/关闭页面）时把内存中的最新消息回写 store；
+  // 此处只持久化消息，不刷新 updatedAt，避免切换会话导致排序跳动
   useEffect(() => {
     return () => {
       updateSessionMessages(session.id, messagesRef.current);
@@ -71,6 +73,7 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
   const isLoading = status === 'submitted' || status === 'streaming';
 
   const handleSubmit = async (text: string) => {
+    touchSession(session.id);
     await sendMessage({ text });
   };
 
@@ -97,6 +100,7 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
     } else if (lastMessage.role === 'user') {
       const text = getMessageText(lastMessage);
       if (text.trim()) {
+        touchSession(session.id);
         await sendMessage({ text });
       }
     }

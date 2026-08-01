@@ -28,6 +28,7 @@ interface ChatStoreActions {
   deleteSession: (id: string) => void;
   updateSessionMessages: (id: string, messages: UIMessage[]) => void;
   maybeAutoTitle: (id: string, messages: UIMessage[]) => void;
+  touchSession: (id: string) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
 }
@@ -69,15 +70,13 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
-      /** 重命名会话：空标题忽略，并刷新 updatedAt 以更新排序 */
+      /** 重命名会话：空标题忽略 */
       renameSession: (id, title) => {
         const trimmed = title.trim();
         if (!trimmed) return;
         set((state) => ({
           sessions: state.sessions.map((session) =>
-            session.id === id
-              ? { ...session, title: trimmed, updatedAt: Date.now() }
-              : session
+            session.id === id ? { ...session, title: trimmed } : session
           ),
         }));
       },
@@ -104,13 +103,20 @@ export const useChatStore = create<ChatStore>()(
         });
       },
 
-      /** 写入会话消息并刷新 updatedAt（用于持久化与排序） */
+      /** 写入会话消息（不更新 updatedAt，排序由 touchSession 控制） */
       updateSessionMessages: (id, messages) => {
         set((state) => ({
           sessions: state.sessions.map((session) =>
-            session.id === id
-              ? { ...session, messages, updatedAt: Date.now() }
-              : session
+            session.id === id ? { ...session, messages } : session
+          ),
+        }));
+      },
+
+      /** 刷新会话 updatedAt：用户发送新问题时调用，使其排到列表顶部 */
+      touchSession: (id) => {
+        set((state) => ({
+          sessions: state.sessions.map((session) =>
+            session.id === id ? { ...session, updatedAt: Date.now() } : session
           ),
         }));
       },
@@ -136,9 +142,7 @@ export const useChatStore = create<ChatStore>()(
 
           return {
             sessions: state.sessions.map((s) =>
-              s.id === id
-                ? { ...s, title: truncateText(text, 20), updatedAt: Date.now() }
-                : s
+              s.id === id ? { ...s, title: truncateText(text, 20) } : s
             ),
           };
         });
