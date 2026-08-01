@@ -1,18 +1,27 @@
 'use client';
 
+/**
+ * @file ChatSessionItem.tsx
+ * @description 侧边栏单条会话项：点击切换、悬浮显示重命名/删除，支持内联编辑
+ */
 import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Pencil, Trash2, Check, X } from 'lucide-react';
 import type { ChatSession } from '@/src/types/chat';
 import { cn, formatTimestamp } from '@/src/lib/utils';
 
 interface ChatSessionItemProps {
+  /** 会话数据 */
   session: ChatSession;
+  /** 是否为当前活跃会话 */
   isActive: boolean;
   onSelect: () => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
 }
 
+/**
+ * 会话列表项组件：默认态显示标题与时间，点击选中；编辑态为内联输入框
+ */
 export function ChatSessionItem({
   session,
   isActive,
@@ -24,6 +33,7 @@ export function ChatSessionItem({
   const [editTitle, setEditTitle] = useState(session.title);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 进入编辑态时聚焦并全选标题，便于直接重命名
   useEffect(() => {
     if (isEditing) {
       inputRef.current?.focus();
@@ -31,6 +41,7 @@ export function ChatSessionItem({
     }
   }, [isEditing]);
 
+  // 重命名：空文本则还原原标题
   const handleRename = () => {
     const trimmed = editTitle.trim();
     if (trimmed) {
@@ -54,6 +65,7 @@ export function ChatSessionItem({
     }
   };
 
+  // 删除前二次确认，避免误删
   const handleDelete = () => {
     if (window.confirm(`确定要删除会话“${session.title}”吗？`)) {
       onDelete(session.id);

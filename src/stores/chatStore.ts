@@ -1,11 +1,17 @@
+/**
+ * @file chatStore.ts
+ * @description 会话全局状态：会话 CRUD、活跃会话切换、localStorage 持久化
+ */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { UIMessage } from 'ai';
 import type { ChatSession } from '@/src/types/chat';
 import { generateId, truncateText } from '@/src/lib/utils';
 
+/** 新建会话的默认标题；maybeAutoTitle 据此判断是否需要自动命名 */
 const DEFAULT_TITLE = '新会话';
 
+/** 会话全局状态：会话列表、当前活跃会话、侧边栏开关与持久化水合标记 */
 interface ChatStoreState {
   sessions: ChatSession[];
   activeSessionId: string | null;
@@ -13,6 +19,7 @@ interface ChatStoreState {
   hydrated: boolean;
 }
 
+/** 会话操作：创建/切换/重命名/删除/更新消息/自动命名/侧边栏控制 */
 interface ChatStoreActions {
   setHydrated: (value: boolean) => void;
   createSession: () => string;
@@ -37,6 +44,7 @@ export const useChatStore = create<ChatStore>()(
 
       setHydrated: (value) => set({ hydrated: value }),
 
+      /** 创建新会话并设为活跃，返回新会话 id */
       createSession: () => {
         const id = generateId();
         const newSession: ChatSession = {
@@ -53,6 +61,7 @@ export const useChatStore = create<ChatStore>()(
         return id;
       },
 
+      /** 切换活跃会话（仅当 id 存在时生效） */
       setActiveSession: (id) => {
         const { sessions } = get();
         if (sessions.some((session) => session.id === id)) {
@@ -60,6 +69,7 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
+      /** 重命名会话：空标题忽略，并刷新 updatedAt 以更新排序 */
       renameSession: (id, title) => {
         const trimmed = title.trim();
         if (!trimmed) return;
@@ -72,13 +82,13 @@ export const useChatStore = create<ChatStore>()(
         }));
       },
 
+      /** 删除会话；若删除的是活跃会话，自动切换到最近更新的会话 */
       deleteSession: (id) => {
         set((state) => {
           const remaining = state.sessions.filter((session) => session.id !== id);
           let nextActiveId = state.activeSessionId;
 
-          // If the deleted session was active, or the current active id no longer
-          // exists in the remaining sessions, switch to the most recent one.
+          // 删除的是活跃会话，或当前活跃 id 已失效时，回退到最近更新的会话
           if (
             state.activeSessionId === id ||
             !remaining.some((session) => session.id === state.activeSessionId)
@@ -94,6 +104,7 @@ export const useChatStore = create<ChatStore>()(
         });
       },
 
+      /** 写入会话消息并刷新 updatedAt（用于持久化与排序） */
       updateSessionMessages: (id, messages) => {
         set((state) => ({
           sessions: state.sessions.map((session) =>
@@ -104,6 +115,7 @@ export const useChatStore = create<ChatStore>()(
         }));
       },
 
+      /** 自动命名：仅当会话仍是默认标题时，取首条用户消息前 20 字作为标题 */
       maybeAutoTitle: (id, messages) => {
         set((state) => {
           const session = state.sessions.find((s) => s.id === id);
@@ -132,12 +144,16 @@ export const useChatStore = create<ChatStore>()(
         });
       },
 
+      /** 切换侧边栏开关 */
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+      /** 显式设置侧边栏开关（移动端遮罩/抽屉使用） */
       setSidebarOpen: (open) => set({ isSidebarOpen: open }),
     }),
     {
       name: 'chat-sessions',
+      // 跳过自动水合，由首页手动触发，避免水合前闪烁
       skipHydration: true,
+      // 只持久化业务数据，hydrated 等瞬时状态不入库
       partialize: (state) => ({
         sessions: state.sessions,
         activeSessionId: state.activeSessionId,
@@ -153,6 +169,7 @@ export const useChatStore = create<ChatStore>()(
   )
 );
 
+/** 选择器：返回当前活跃会话，无活跃会话时返回 null */
 export const selectActiveSession = (state: ChatStore): ChatSession | null => {
   if (!state.activeSessionId) return null;
   return state.sessions.find((session) => session.id === state.activeSessionId) ?? null;

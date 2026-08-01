@@ -1,3 +1,7 @@
+/**
+ * @file ai.ts
+ * @description AI Provider 工厂：当前使用阿里百炼（DashScope，OpenAI 兼容协议）
+ */
 import { createOpenAI } from '@ai-sdk/openai';
 
 // 阿里百炼

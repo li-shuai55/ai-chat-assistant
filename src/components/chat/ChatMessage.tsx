@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * @file ChatMessage.tsx
+ * @description 单条消息气泡：用户消息纯文本右对齐，AI 消息 Markdown 渲染左对齐
+ */
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -10,6 +14,7 @@ interface ChatMessageProps {
   message: UIMessage;
 }
 
+/** 提取消息 parts 中的全部文本片段（AI SDK UI Message 结构） */
 function getMessageText(message: UIMessage): string {
   return message.parts
     .filter((part) => part.type === 'text')
@@ -17,6 +22,9 @@ function getMessageText(message: UIMessage): string {
     .join('');
 }
 
+/**
+ * 单条消息组件：按角色区分气泡样式，assistant 消息经 Markdown + 代码高亮渲染
+ */
 export function ChatMessage({ message }: ChatMessageProps) {
   const text = getMessageText(message);
   const isUser = message.role === 'user';

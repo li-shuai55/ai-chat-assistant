@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * @file ChatMessageList.tsx
+ * @description 消息列表：空态引导、流式加载动画、错误提示，新消息自动滚底
+ */
 import { useEffect, useRef } from 'react';
 import type { UIMessage } from 'ai';
 import { ChatMessage } from './ChatMessage';
@@ -17,6 +21,7 @@ export function ChatMessageList({
 }: ChatMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // 消息更新或加载状态变化时，平滑滚动到底部
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
@@ -35,6 +40,7 @@ export function ChatMessageList({
           <ChatMessage key={message.id} message={message} />
         ))}
 
+        {/* 助手尚未返回首段内容时，显示打字动画 */}
         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
           <div className="flex justify-start">
             <div className="rounded-2xl rounded-bl-sm bg-white px-4 py-3 shadow-sm border border-gray-200">
@@ -47,6 +53,7 @@ export function ChatMessageList({
           </div>
         )}
 
+        {/* 流式请求出错时展示错误信息 */}
         {error && (
           <div className="rounded-lg bg-red-50 px-4 py-3 text-center text-sm text-red-600">
             出错了：{error.message}

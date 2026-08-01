@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * @file ChatSidebar.tsx
+ * @description 会话侧边栏：新建/切换/重命名/删除会话；另含移动端遮罩与抽屉
+ */
 import { useMemo } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useChatStore } from '@/src/stores/chatStore';
@@ -7,11 +11,17 @@ import { cn } from '@/src/lib/utils';
 import { ChatSessionItem } from './ChatSessionItem';
 
 interface ChatSidebarProps {
+  /** 移动端关闭回调：抽屉内操作（新建/选中）后自动收起 */
   onCloseMobile?: () => void;
 }
 
+/**
+ * 会话侧边栏组件：顶部新建按钮，中部会话列表，底部品牌信息；
+ * 重命名/删除交互见 ChatSessionItem。
+ */
 export function ChatSidebar({ onCloseMobile }: ChatSidebarProps) {
   const sessions = useChatStore((state) => state.sessions);
+  // 按最近更新时间倒序展示
   const sortedSessions = useMemo(
     () => [...sessions].sort((a, b) => b.updatedAt - a.updatedAt),
     [sessions]
@@ -22,11 +32,13 @@ export function ChatSidebar({ onCloseMobile }: ChatSidebarProps) {
   const renameSession = useChatStore((state) => state.renameSession);
   const deleteSession = useChatStore((state) => state.deleteSession);
 
+  // 新建会话后，移动端自动收起侧边栏
   const handleCreateSession = () => {
     createSession();
     onCloseMobile?.();
   };
 
+  // 切换会话后，移动端自动收起侧边栏
   const handleSelect = (id: string) => {
     setActiveSession(id);
     onCloseMobile?.();
@@ -86,6 +98,9 @@ export function ChatSidebar({ onCloseMobile }: ChatSidebarProps) {
   );
 }
 
+/**
+ * 移动端侧边栏：半透明遮罩 + 抽屉式侧边栏，点击遮罩或关闭按钮收起
+ */
 export function ChatSidebarOverlay() {
   const isSidebarOpen = useChatStore((state) => state.isSidebarOpen);
   const setSidebarOpen = useChatStore((state) => state.setSidebarOpen);

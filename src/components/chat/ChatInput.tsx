@@ -1,12 +1,19 @@
 'use client';
 
+/**
+ * @file ChatInput.tsx
+ * @description 消息输入框：Enter 发送、Shift+Enter 换行、高度自适应、生成中可停止
+ */
 import { useState, useRef, useEffect } from 'react';
 import { Send, Square } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
 interface ChatInputProps {
+  /** 提交回调（已过滤空文本） */
   onSubmit: (text: string) => void;
+  /** 是否处于生成中：禁用输入并显示停止按钮 */
   isLoading?: boolean;
+  /** 停止生成回调 */
   onStop?: () => void;
   placeholder?: string;
 }
@@ -20,6 +27,7 @@ export function ChatInput({
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // 过滤空文本与加载态，提交后清空输入框
   const handleSubmit = () => {
     const text = input.trim();
     if (!text || isLoading) return;
@@ -34,6 +42,7 @@ export function ChatInput({
     }
   };
 
+  // 输入内容变化时自适应增高，最高 200px，超出后内部滚动
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;

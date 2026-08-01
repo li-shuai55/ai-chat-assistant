@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * @file ChatLayout.tsx
+ * @description 应用布局中枢：桌面端侧边栏 + 移动端抽屉遮罩 + 主聊天区
+ */
 import { useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { DefaultChatTransport, UIMessage } from 'ai';
@@ -9,6 +13,7 @@ import { ChatSidebar, ChatSidebarOverlay } from './ChatSidebar';
 import { ChatArea } from './ChatArea';
 
 export function ChatLayout() {
+  // 传输层全局只创建一次；useChat 通过它 POST /api/chat 进行流式请求
   const transport = useMemo(
     () => new DefaultChatTransport<UIMessage>({ api: '/api/chat' }),
     []
@@ -39,6 +44,7 @@ export function ChatLayout() {
       <div className="flex flex-1 flex-col">
         <div className="flex-1 overflow-hidden">
           {sessions.length === 0 ? (
+            // 无会话时的空态引导
             <div className="flex h-full flex-col items-center justify-center bg-gray-50 text-gray-500">
               <p className="text-lg font-medium">还没有会话</p>
               <p className="mt-2 text-sm">点击新建会话，开始与 AI 对话</p>
@@ -52,6 +58,7 @@ export function ChatLayout() {
               </button>
             </div>
           ) : activeSession ? (
+            // key 随活跃会话变化强制重建 ChatArea，保证 useChat 与会话重新绑定、互不串场
             <ChatArea
               key={activeSessionId}
               session={activeSession}

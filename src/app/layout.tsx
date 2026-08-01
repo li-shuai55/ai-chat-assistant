@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   description: "A ChatGPT-like AI chat assistant with multi-session support",
 };
 
+/**
+ * 根布局：加载 Geist 字体、注入全局样式与站点 metadata
+ */
 export default function RootLayout({
   children,
 }: Readonly<{
