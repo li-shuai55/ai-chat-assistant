@@ -5,11 +5,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { UIMessage } from 'ai';
-import type { ChatSession } from '@/src/types/chat';
+import type { ChatSession, ModelConfig } from '@/src/types/chat';
 import { generateId, truncateText } from '@/src/lib/utils';
 
 /** 新建会话的默认标题；maybeAutoTitle 据此判断是否需要自动命名 */
 const DEFAULT_TITLE = '新会话';
+
+/** 新建会话的默认模型与生成参数配置 */
+export const DEFAULT_MODEL_CONFIG: ModelConfig = {
+  provider: 'bailian',
+  model: 'qwen-plus',
+  temperature: 0.7,
+  maxOutputTokens: 2048,
+};
 
 /** 会话全局状态：会话列表、当前活跃会话、侧边栏开关与持久化水合标记 */
 interface ChatStoreState {
@@ -27,6 +35,7 @@ interface ChatStoreActions {
   renameSession: (id: string, title: string) => void;
   deleteSession: (id: string) => void;
   updateSessionMessages: (id: string, messages: UIMessage[]) => void;
+  updateSessionModelConfig: (id: string, config: Partial<ModelConfig>) => void;
   maybeAutoTitle: (id: string, messages: UIMessage[]) => void;
   touchSession: (id: string) => void;
   toggleSidebar: () => void;
@@ -54,6 +63,8 @@ export const useChatStore = create<ChatStore>()(
           createdAt: Date.now(),
           updatedAt: Date.now(),
           messages: [],
+          // 新会话继承默认模型与生成参数配置
+          modelConfig: { ...DEFAULT_MODEL_CONFIG },
         };
         set((state) => ({
           sessions: [newSession, ...state.sessions],
@@ -112,6 +123,17 @@ export const useChatStore = create<ChatStore>()(
         }));
       },
 
+      /** 更新会话的模型与生成参数配置（部分更新，未提供字段保持原值） */
+      updateSessionModelConfig: (id, config) => {
+        set((state) => ({
+          sessions: state.sessions.map((session) =>
+            session.id === id
+              ? { ...session, modelConfig: { ...session.modelConfig, ...config } }
+              : session
+          ),
+        }));
+      },
+
       /** 刷新会话 updatedAt：用户发送新问题时调用，使其排到列表顶部 */
       touchSession: (id) => {
         set((state) => ({
@@ -163,6 +185,21 @@ export const useChatStore = create<ChatStore>()(
         activeSessionId: state.activeSessionId,
         isSidebarOpen: state.isSidebarOpen,
       }),
+      // 合并且迁移旧数据：早期没有 modelConfig 的会话自动补上默认配置
+      merge: (persistedState: unknown, currentState) => {
+        const persisted = persistedState as Partial<ChatStoreState> | undefined;
+        const mergedSessions =
+          persisted?.sessions?.map((session) => ({
+            ...session,
+            modelConfig: session.modelConfig ?? { ...DEFAULT_MODEL_CONFIG },
+          })) ?? currentState.sessions;
+
+        return {
+          ...currentState,
+          ...persisted,
+          sessions: mergedSessions,
+        };
+      },
       onRehydrateStorage: () => (state, error) => {
         if (error) {
           console.error('Failed to rehydrate chat store:', error);

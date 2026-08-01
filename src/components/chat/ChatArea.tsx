@@ -9,9 +9,10 @@ import { PanelLeft } from 'lucide-react';
 import { useChat } from '@ai-sdk/react';
 import type { DefaultChatTransport, UIMessage } from 'ai';
 import type { ChatSession } from '@/src/types/chat';
-import { useChatStore } from '@/src/stores/chatStore';
+import { useChatStore, DEFAULT_MODEL_CONFIG } from '@/src/stores/chatStore';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
+import { ChatModelControls } from './ChatModelControls';
 
 /** 提取 UI 消息中的文本内容 */
 function getMessageText(message: UIMessage): string {
@@ -34,6 +35,7 @@ interface ChatAreaProps {
  */
 export function ChatArea({ session, transport }: ChatAreaProps) {
   const updateSessionMessages = useChatStore((state) => state.updateSessionMessages);
+  const updateSessionModelConfig = useChatStore((state) => state.updateSessionModelConfig);
   const maybeAutoTitle = useChatStore((state) => state.maybeAutoTitle);
   const touchSession = useChatStore((state) => state.touchSession);
   const isSidebarOpen = useChatStore((state) => state.isSidebarOpen);
@@ -72,9 +74,26 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
   // 请求已提交或正在流式生成，视为加载态
   const isLoading = status === 'submitted' || status === 'streaming';
 
+  /**
+   * 兼容旧会话：若会话数据中没有 modelConfig（如早期持久化数据），
+   * 使用默认配置兜底，避免读取 undefined.provider 报错。
+   */
+  const modelConfig = session.modelConfig ?? DEFAULT_MODEL_CONFIG;
+
+  /**
+   * 每次请求（发送/重新生成/重试）都要携带当前会话的模型配置，
+   * 确保服务端使用与用户选择一致的 Provider、模型与生成参数。
+   */
+  const requestBody = {
+    provider: modelConfig.provider,
+    model: modelConfig.model,
+    temperature: modelConfig.temperature,
+    maxOutputTokens: modelConfig.maxOutputTokens,
+  };
+
   const handleSubmit = async (text: string) => {
     touchSession(session.id);
-    await sendMessage({ text });
+    await sendMessage({ text }, { body: requestBody });
   };
 
   /**
@@ -83,7 +102,7 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
    * 这里显式传入最后一条 assistant 消息的 id，使行为与 UI 入口对应。
    */
   const handleRegenerate = async (messageId: string) => {
-    await regenerate({ messageId });
+    await regenerate({ messageId, body: requestBody });
   };
 
   /**
@@ -96,12 +115,12 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
     if (!lastMessage) return;
 
     if (lastMessage.role === 'assistant') {
-      await regenerate({ messageId: lastMessage.id });
+      await regenerate({ messageId: lastMessage.id, body: requestBody });
     } else if (lastMessage.role === 'user') {
       const text = getMessageText(lastMessage);
       if (text.trim()) {
         touchSession(session.id);
-        await sendMessage({ text });
+        await sendMessage({ text }, { body: requestBody });
       }
     }
   };
@@ -131,6 +150,12 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
         onRegenerate={handleRegenerate}
         isRegenerating={isLoading}
         onRetry={handleRetry}
+      />
+
+      {/* 模型与生成参数控制栏：按会话独立配置 */}
+      <ChatModelControls
+        config={modelConfig}
+        onChange={(config) => updateSessionModelConfig(session.id, config)}
       />
 
       <ChatInput
