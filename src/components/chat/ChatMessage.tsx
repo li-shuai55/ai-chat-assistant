@@ -2,23 +2,28 @@
 
 /**
  * @file ChatMessage.tsx
- * @description 单条消息气泡：用户消息纯文本右对齐，AI 消息 Markdown 渲染左对齐
+ * @description 单条消息气泡：用户消息纯文本右对齐，AI 消息 Markdown 渲染左对齐。
  *
- * AI 消息使用 react-markdown 解析 Markdown，配合 remark-gfm 支持表格/删除线/GFM 扩展语法，
- * 配合 rehype-highlight 实现代码块语法高亮。排版默认样式由 Tailwind Typography 插件的
- * prose 类提供，代码块额外提供右上角复制按钮。
+ * 性能优化：
+ * - 流式生成时，将 AI 消息拆分为“已定型（committedText）”与“待定（pendingText）”两部分。
+ *   已定型部分使用完整 Markdown + 语法高亮渲染（低频更新），待定部分使用纯文本轻量渲染（高频更新）。
+ *   避免 react-markdown + rehype-highlight 在每次 token 到达时全量重解析，从而显著降低长文本流式卡顿。
+ * - 使用 React.memo + 自定义比较函数包裹组件，历史已完成消息在流式过程中不再重复渲染。
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Check, Copy, RefreshCw } from 'lucide-react';
 import type { UIMessage } from 'ai';
 import { cn } from '@/src/lib/utils';
+import { useStreamingText } from '@/src/hooks/useStreamingText';
 
 interface ChatMessageProps {
   /** AI SDK 的 UI 消息对象 */
   message: UIMessage;
+  /** 是否正处于流式生成中：仅最后一条 assistant 消息为 true */
+  isStreaming?: boolean;
   /** 重新生成回调：仅对需要展示“重新生成”按钮的 assistant 消息传入 */
   onRegenerate?: () => void;
   /** 是否处于生成中：用于禁用重新生成按钮，避免重复触发 */
@@ -97,10 +102,71 @@ function CodeCopyButton({ code }: { code: string }) {
  * 用户消息保持原样（whitespace-pre-wrap），assistant 消息使用 react-markdown 解析，
  * 通过 Tailwind Typography 的 prose 类控制段落、列表、标题间距，通过自定义 pre/code
  * 组件实现深色代码块背景与复制按钮。
+ *
+ * 流式生成时，assistant 消息的已定型文本走完整 Markdown 渲染，待定文本使用纯文本追加，
+ * 避免高频 token 更新触发全量重解析。
  */
-export function ChatMessage({ message, onRegenerate, isRegenerating }: ChatMessageProps) {
+function ChatMessageComponent({
+  message,
+  isStreaming,
+  onRegenerate,
+  isRegenerating,
+}: ChatMessageProps) {
   const text = getMessageText(message);
   const isUser = message.role === 'user';
+
+  // 对所有 assistant 消息都调用 Hook；非流式时 committedText 直接等于 text，pendingText 为空
+  const { committedText, pendingText } = useStreamingText({
+    text,
+    isStreaming: isStreaming ?? false,
+  });
+
+  // 已定型 Markdown 使用 useMemo 缓存，只有 committedText 变化时才重新创建 ReactMarkdown 元素，
+  // 减少待定文本高频更新时 react-markdown + rehype-highlight 的重复解析开销
+  const markdownContent = useMemo(
+    () => (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={{
+          // 自定义代码块容器：添加相对定位与复制按钮；pre 本身去掉默认 margin，
+          // 由外层 div 控制上下间距，保持气泡内紧凑
+          pre: ({ children }) => {
+            const codeText = getNodeText(children);
+            return (
+              <div className="group relative my-3">
+                <CodeCopyButton code={codeText} />
+                <pre className="m-0 overflow-x-auto rounded-lg bg-gray-900 p-3 text-sm text-gray-100">
+                  {children}
+                </pre>
+              </div>
+            );
+          },
+          // 自定义 code 元素：无 language 类时为行内代码，使用灰底红字；
+          // 有 language 类时为代码块内的 code，保留 rehype-highlight 注入的高亮类
+          code: ({ className, children, ...props }) => {
+            const isInline = !className;
+            return (
+              <code
+                className={cn(
+                  isInline
+                    ? 'rounded bg-gray-100 px-1 py-0.5 text-sm font-medium text-rose-600'
+                    : 'font-mono text-sm',
+                  className
+                )}
+                {...props}
+              >
+                {children}
+              </code>
+            );
+          },
+        }}
+      >
+        {committedText}
+      </ReactMarkdown>
+    ),
+    [committedText]
+  );
 
   return (
     <div
@@ -123,45 +189,11 @@ export function ChatMessage({ message, onRegenerate, isRegenerating }: ChatMessa
           // prose：Tailwind Typography 提供的默认排版；prose-slate 使用 slate 灰阶；
           // 各类 prose-*: 修饰符用于压缩消息气泡内的间距，避免标题/列表/代码块过大
           <div className="prose prose-sm max-w-none prose-slate prose-p:my-1 prose-pre:my-0 prose-ul:my-1 prose-ol:my-1 prose-headings:mb-2 prose-headings:mt-3">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-              components={{
-                // 自定义代码块容器：添加相对定位与复制按钮；pre 本身去掉默认 margin，
-                // 由外层 div 控制上下间距，保持气泡内紧凑
-                pre: ({ children }) => {
-                  const codeText = getNodeText(children);
-                  return (
-                    <div className="group relative my-3">
-                      <CodeCopyButton code={codeText} />
-                      <pre className="m-0 overflow-x-auto rounded-lg bg-gray-900 p-3 text-sm text-gray-100">
-                        {children}
-                      </pre>
-                    </div>
-                  );
-                },
-                // 自定义 code 元素：无 language 类时为行内代码，使用灰底红字；
-                // 有 language 类时为代码块内的 code，保留 rehype-highlight 注入的高亮类
-                code: ({ className, children, ...props }) => {
-                  const isInline = !className;
-                  return (
-                    <code
-                      className={cn(
-                        isInline
-                          ? 'rounded bg-gray-100 px-1 py-0.5 text-sm font-medium text-rose-600'
-                          : 'font-mono text-sm',
-                        className
-                      )}
-                      {...props}
-                    >
-                      {children}
-                    </code>
-                  );
-                },
-              }}
-            >
-              {text}
-            </ReactMarkdown>
+            {committedText && markdownContent}
+            {/* 待定文本：尚未到达安全边界，使用纯文本轻量渲染，避免高频更新触发完整 Markdown 解析 */}
+            {pendingText && (
+              <span className="whitespace-pre-wrap text-gray-900">{pendingText}</span>
+            )}
           </div>
         )}
       </div>
@@ -184,3 +216,25 @@ export function ChatMessage({ message, onRegenerate, isRegenerating }: ChatMessa
     </div>
   );
 }
+
+/**
+ * ChatMessage 自定义比较函数：
+ * 1. 流式消息必须继续渲染，不能复用；
+ * 2. 重新生成按钮状态变化时重新渲染；
+ * 3. onRegenerate 引用变化时重新渲染（通常由父级 useCallback 稳定）；
+ * 4. 消息 id 或文本内容变化时重新渲染；
+ * 5. 其他情况复用，避免历史已完成消息在流式过程中重复渲染。
+ */
+function chatMessagePropsAreEqual(
+  prev: ChatMessageProps,
+  next: ChatMessageProps
+): boolean {
+  if (prev.isStreaming || next.isStreaming) return false;
+  if (prev.isRegenerating !== next.isRegenerating) return false;
+  if (prev.onRegenerate !== next.onRegenerate) return false;
+  if (prev.message.id !== next.message.id) return false;
+  if (getMessageText(prev.message) !== getMessageText(next.message)) return false;
+  return true;
+}
+
+export const ChatMessage = memo(ChatMessageComponent, chatMessagePropsAreEqual);

@@ -2,9 +2,14 @@
 
 /**
  * @file ChatArea.tsx
- * @description 聊天主区域：绑定 useChat 与当前会话，负责流式对话与消息持久化
+ * @description 聊天主区域：绑定 useChat 与当前会话，负责流式对话与消息持久化。
+ *
+ * 性能优化：
+ * - requestBody 使用 useMemo 缓存，避免每次渲染都创建新对象。
+ * - 提交/重新生成/重试回调使用 useCallback 稳定化，减少下游组件不必要的重渲染。
+ * - 将 `status === 'streaming'` 透传给 ChatMessageList，使只有最后一条 assistant 消息启用流式拆分渲染。
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { PanelLeft } from 'lucide-react';
 import { useChat } from '@ai-sdk/react';
 import type { DefaultChatTransport, UIMessage } from 'ai';
@@ -71,6 +76,8 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
     };
   }, [session.id, updateSessionMessages]);
 
+  // streaming 状态单独透传给消息列表，用于启用流式拆分渲染
+  const isStreaming = status === 'streaming';
   // 请求已提交或正在流式生成，视为加载态
   const isLoading = status === 'submitted' || status === 'streaming';
 
@@ -83,34 +90,48 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
   /**
    * 每次请求（发送/重新生成/重试）都要携带当前会话的模型配置，
    * 确保服务端使用与用户选择一致的 Provider、模型与生成参数。
+   * 使用 useMemo 缓存对象引用，避免每次渲染都创建新的 requestBody 导致下游重渲染。
    */
-  const requestBody = {
-    provider: modelConfig.provider,
-    model: modelConfig.model,
-    temperature: modelConfig.temperature,
-    maxOutputTokens: modelConfig.maxOutputTokens,
-  };
+  const requestBody = useMemo(
+    () => ({
+      provider: modelConfig.provider,
+      model: modelConfig.model,
+      temperature: modelConfig.temperature,
+      maxOutputTokens: modelConfig.maxOutputTokens,
+    }),
+    [modelConfig]
+  );
 
-  const handleSubmit = async (text: string) => {
-    touchSession(session.id);
-    await sendMessage({ text }, { body: requestBody });
-  };
+  /**
+   * 发送用户消息。
+   * 先 touchSession 更新会话时间，再调用 sendMessage 发起流式请求。
+   */
+  const handleSubmit = useCallback(
+    async (text: string) => {
+      touchSession(session.id);
+      await sendMessage({ text }, { body: requestBody });
+    },
+    [session.id, sendMessage, requestBody, touchSession]
+  );
 
   /**
    * 重新生成指定 assistant 消息的回复。
    * 不传 messageId 时 AI SDK 默认重新生成最后一条 assistant 消息；
    * 这里显式传入最后一条 assistant 消息的 id，使行为与 UI 入口对应。
    */
-  const handleRegenerate = async (messageId: string) => {
-    await regenerate({ messageId, body: requestBody });
-  };
+  const handleRegenerate = useCallback(
+    async (messageId: string) => {
+      await regenerate({ messageId, body: requestBody });
+    },
+    [regenerate, requestBody]
+  );
 
   /**
    * 错误重试：根据最后一条消息的角色决定重试策略。
    * - 最后一条是 assistant：调用 regenerate 重新生成该回复
    * - 最后一条是 user：提取文本后重新发送用户消息
    */
-  const handleRetry = async () => {
+  const handleRetry = useCallback(async () => {
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage) return;
 
@@ -123,7 +144,7 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
         await sendMessage({ text }, { body: requestBody });
       }
     }
-  };
+  }, [messages, regenerate, requestBody, sendMessage, session.id, touchSession]);
 
   return (
     <div className="flex h-full flex-col bg-gray-50">
@@ -147,6 +168,7 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
         messages={messages}
         error={error}
         isLoading={isLoading}
+        isStreaming={isStreaming}
         onRegenerate={handleRegenerate}
         isRegenerating={isLoading}
         onRetry={handleRetry}
