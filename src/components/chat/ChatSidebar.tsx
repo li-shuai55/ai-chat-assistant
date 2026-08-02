@@ -44,14 +44,16 @@ export function ChatSidebar({ onCloseMobile }: ChatSidebarProps) {
     onCloseMobile?.();
   };
 
+  // 主题相关：侧边栏使用独立的 sidebar-* 语义化 token，
+  // 深浅色模式下保持对比度，避免硬编码 gray-900 导致深色模式失效。
   return (
-    <div className="flex h-full w-64 flex-col border-r border-gray-800 bg-gray-900 text-gray-100">
+    <div className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-800 p-3">
+      <div className="flex items-center justify-between border-b border-sidebar-border p-3">
         <button
           type="button"
           onClick={handleCreateSession}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800 py-2 text-sm font-medium text-gray-100 transition-colors hover:bg-gray-700"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/80"
         >
           <Plus className="h-4 w-4" />
           新建会话
@@ -59,7 +61,7 @@ export function ChatSidebar({ onCloseMobile }: ChatSidebarProps) {
         <button
           type="button"
           onClick={onCloseMobile}
-          className="ml-2 rounded p-2 text-gray-400 hover:bg-gray-800 hover:text-gray-100 md:hidden"
+          className="ml-2 rounded p-2 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground md:hidden"
           aria-label="关闭侧边栏"
         >
           <X className="h-5 w-5" />
@@ -81,7 +83,7 @@ export function ChatSidebar({ onCloseMobile }: ChatSidebarProps) {
           ))}
 
           {sortedSessions.length === 0 && (
-            <div className="px-3 py-8 text-center text-sm text-gray-500">
+            <div className="px-3 py-8 text-center text-sm text-sidebar-muted">
               暂无会话，点击上方按钮创建
             </div>
           )}
@@ -89,8 +91,8 @@ export function ChatSidebar({ onCloseMobile }: ChatSidebarProps) {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-gray-800 p-3">
-        <p className="text-center text-xs text-gray-500">
+      <div className="border-t border-sidebar-border p-3">
+        <p className="text-center text-xs text-sidebar-muted">
           AI Chat Assistant
         </p>
       </div>

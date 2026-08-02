@@ -50,9 +50,11 @@ export function ChatInput({
     textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
   }, [input]);
 
+  // 主题相关：输入区使用 surface / border / input 等语义化 token，
+  // 深浅色模式下自动适配背景、边框与文字颜色。
   return (
-    <div className="border-t bg-white p-4">
-      <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-gray-300 bg-white px-3 py-2 shadow-sm focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+    <div className="border-t border-border bg-surface p-4">
+      <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-input bg-surface px-3 py-2 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
         <textarea
           ref={textareaRef}
           value={input}
@@ -61,13 +63,13 @@ export function ChatInput({
           placeholder={placeholder}
           rows={1}
           disabled={isLoading}
-          className="max-h-50 flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed outline-none disabled:opacity-60"
+          className="max-h-50 flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-foreground outline-none disabled:opacity-60"
         />
         {isLoading ? (
           <button
             type="button"
             onClick={onStop}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80"
             aria-label="停止生成"
           >
             <Square className="h-4 w-4 fill-current" />
@@ -80,8 +82,8 @@ export function ChatInput({
             className={cn(
               'flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors',
               input.trim()
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-200 text-gray-400'
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'bg-muted text-muted-foreground/60'
             )}
             aria-label="发送"
           >
@@ -89,7 +91,7 @@ export function ChatInput({
           </button>
         )}
       </div>
-      <p className="mt-2 text-center text-xs text-gray-400">
+      <p className="mt-2 text-center text-xs text-muted-foreground">
         AI 生成内容仅供参考
       </p>
     </div>

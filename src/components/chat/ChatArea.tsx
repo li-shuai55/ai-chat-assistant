@@ -146,21 +146,24 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
     }
   }, [messages, regenerate, requestBody, sendMessage, session.id, touchSession]);
 
+  // 主题相关：颜色统一使用语义化 token，随 <html data-theme> 切换深浅色。
+  // 主题切换按钮由 ChatLayout 固定于右上角，全局可用。
   return (
-    <div className="flex h-full flex-col bg-gray-50">
+    <div className="flex h-full flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center border-b bg-white px-4 py-3">
+      <div className="flex items-center border-b border-border bg-surface px-4 py-3">
         <button
           type="button"
           onClick={toggleSidebar}
-          className="rounded p-2 text-gray-600 transition-colors hover:bg-gray-100"
+          className="rounded p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label={isSidebarOpen ? '收起侧边栏' : '展开侧边栏'}
         >
           <PanelLeft className="h-5 w-5" />
         </button>
-        <h1 className="flex-1 truncate text-center text-base font-medium text-gray-900">
+        <h1 className="flex-1 truncate text-center text-base font-medium text-foreground">
           {session.title}
         </h1>
+        {/* 与右侧固定主题按钮同尺寸的占位，保持标题水平居中 */}
         <div className="h-9 w-9" />
       </div>
 

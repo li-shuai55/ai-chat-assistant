@@ -74,27 +74,27 @@ export function ChatSessionItem({
 
   if (isEditing) {
     return (
-      <div className="group flex items-center gap-2 rounded-lg bg-gray-800/50 px-3 py-2">
-        <MessageSquare className="h-4 w-4 shrink-0 text-gray-400" />
+      <div className="group flex items-center gap-2 rounded-lg bg-sidebar-accent/60 px-3 py-2">
+        <MessageSquare className="h-4 w-4 shrink-0 text-sidebar-muted" />
         <input
           ref={inputRef}
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
           onBlur={handleRename}
           onKeyDown={handleKeyDown}
-          className="min-w-0 flex-1 bg-transparent text-sm text-gray-100 outline-none"
+          className="min-w-0 flex-1 bg-transparent text-sm text-sidebar-foreground outline-none"
         />
         <button
           type="button"
           onClick={handleRename}
-          className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-700 hover:text-gray-100"
+          className="shrink-0 rounded p-1 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
         >
           <Check className="h-3.5 w-3.5" />
         </button>
         <button
           type="button"
           onClick={handleCancel}
-          className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-700 hover:text-gray-100"
+          className="shrink-0 rounded p-1 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -102,20 +102,21 @@ export function ChatSessionItem({
     );
   }
 
+  // 主题相关：使用 sidebar-* 语义化 token，随主题切换自动适配深浅色
   return (
     <div
       onClick={onSelect}
       className={cn(
         'group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 transition-colors',
         isActive
-          ? 'bg-gray-800 text-gray-100'
-          : 'text-gray-300 hover:bg-gray-800/50 hover:text-gray-100'
+          ? 'bg-sidebar-accent text-sidebar-foreground'
+          : 'text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
       )}
     >
-      <MessageSquare className="h-4 w-4 shrink-0 text-gray-400" />
+      <MessageSquare className="h-4 w-4 shrink-0 text-sidebar-muted" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{session.title}</p>
-        <p className="text-xs text-gray-500">{formatTimestamp(session.updatedAt)}</p>
+        <p className="text-xs text-sidebar-muted/80">{formatTimestamp(session.updatedAt)}</p>
       </div>
       <div
         className={cn(
@@ -130,7 +131,7 @@ export function ChatSessionItem({
             setEditTitle(session.title);
             setIsEditing(true);
           }}
-          className="rounded p-1 text-gray-400 hover:bg-gray-700 hover:text-gray-100"
+          className="rounded p-1 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
           aria-label="重命名"
         >
           <Pencil className="h-3.5 w-3.5" />
@@ -138,7 +139,7 @@ export function ChatSessionItem({
         <button
           type="button"
           onClick={handleDelete}
-          className="rounded p-1 text-gray-400 hover:bg-red-900/50 hover:text-red-400"
+          className="rounded p-1 text-sidebar-muted hover:bg-error-bg hover:text-error-text"
           aria-label="删除"
         >
           <Trash2 className="h-3.5 w-3.5" />

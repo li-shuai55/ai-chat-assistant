@@ -6,27 +6,121 @@
  */
 @plugin "@tailwindcss/typography";
 
+/*
+ * 自定义 dark 变体：让 `dark:*` 类基于 html 上的 data-theme 属性生效，
+ * 而不是依赖系统 prefers-color-scheme，从而支持手动切换。
+ */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/*
+ * 语义化颜色 token。
+ * 浅色模式作为默认值；深色模式在 [data-theme="dark"] 中覆盖。
+ * 所有组件统一使用这些 token，而不是硬编码的 gray/blue 色值。
+ *
+ * color-scheme：告知浏览器当前主题色系，使原生 UI（滚动条、表单控件、
+ * 输入框光标等）无需等待 JS 即可匹配主题，属于低成本性能/体验优化。
+ */
 :root {
+  color-scheme: light;
+
   --background: #ffffff;
   --foreground: #171717;
+
+  --surface: #ffffff;
+  --surface-secondary: #f9fafb;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+
+  --border: #e5e7eb;
+  --input: #d1d5db;
+
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+
+  --sidebar: #f9fafb;
+  --sidebar-foreground: #171717;
+  --sidebar-muted: #6b7280;
+  --sidebar-border: #e5e7eb;
+  --sidebar-accent: #f3f4f6;
+
+  --ring: #3b82f6;
+
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --error-text: #b91c1c;
+  --error-muted: #dc2626;
+
+  --code-block-bg: #111827;
+  --code-block-fg: #f9fafb;
 }
 
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  --surface: #171717;
+  --surface-secondary: #0a0a0a;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+
+  --border: #262626;
+  --input: #404040;
+
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+
+  --sidebar: #171717;
+  --sidebar-foreground: #ededed;
+  --sidebar-muted: #a3a3a3;
+  --sidebar-border: #262626;
+  --sidebar-accent: #262626;
+
+  --ring: #60a5fa;
+
+  --error-bg: #450a0a;
+  --error-border: #7f1d1d;
+  --error-text: #fca5a5;
+  --error-muted: #f87171;
+
+  --code-block-bg: #0a0a0a;
+  --code-block-fg: #ededed;
+}
+
+/*
+ * @theme inline 将 CSS 变量注册为 Tailwind 工具类，
+ * 例如 `bg-background`、`text-foreground`、`border-border`。
+ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-ring: var(--ring);
+  --color-error-bg: var(--error-bg);
+  --color-error-border: var(--error-border);
+  --color-error-text: var(--error-text);
+  --color-error-muted: var(--error-muted);
+  --color-code-block-bg: var(--code-block-bg);
+  --color-code-block-fg: var(--code-block-fg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }

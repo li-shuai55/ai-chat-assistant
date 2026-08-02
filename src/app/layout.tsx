@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
-// highlight.js 代码高亮主题：放在 layout 中作为普通 CSS import，
-// 避免在 Tailwind 入口 CSS 里用 @import 触发 Turbopack/PostCSS worker 偶发崩溃
-import "highlight.js/styles/github-dark.css";
 import "./globals.css";
+import { ThemeInitScript } from "@/src/components/theme/ThemeInitScript";
+import { CodeHighlightTheme } from "@/src/components/theme/CodeHighlightTheme";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,11 +29,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // suppressHydrationWarning：内联脚本会修改 html 属性，允许服务端/客户端差异。
     <html
       lang="en"
+      data-theme="light"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        <ThemeInitScript />
+      </head>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        {children}
+        {/* 仅在客户端运行，负责根据当前主题切换 highlight.js 代码高亮 CSS。 */}
+        <CodeHighlightTheme />
+      </body>
     </html>
   );
 }

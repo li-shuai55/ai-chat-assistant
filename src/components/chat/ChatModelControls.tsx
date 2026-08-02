@@ -58,16 +58,18 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
     onChange({ maxOutputTokens: clamped });
   };
 
+  // 主题相关：控制栏使用 surface / border / input / muted 等语义化 token，
+  // 深浅色模式下自动适配表单控件配色。
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b bg-white px-3 py-2 text-sm">
+    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-3 py-2 text-sm">
       {/* Provider 选择 */}
       <div className="flex items-center gap-1.5">
-        <label htmlFor="provider-select" className="text-gray-500">Provider</label>
+        <label htmlFor="provider-select" className="text-muted-foreground">Provider</label>
         <select
           id="provider-select"
           value={config.provider}
           onChange={handleProviderChange}
-          className="rounded-md border border-gray-300 bg-white px-2 py-1 text-gray-800 focus:border-blue-500 focus:outline-none"
+          className="rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
         >
           {(Object.keys(SUPPORTED_PROVIDERS) as ModelProvider[]).map((provider) => (
             <option key={provider} value={provider}>
@@ -79,12 +81,12 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
 
       {/* 模型选择 */}
       <div className="flex items-center gap-1.5">
-        <label htmlFor="model-select" className="text-gray-500">模型</label>
+        <label htmlFor="model-select" className="text-muted-foreground">模型</label>
         <select
           id="model-select"
           value={config.model}
           onChange={handleModelChange}
-          className="rounded-md border border-gray-300 bg-white px-2 py-1 text-gray-800 focus:border-blue-500 focus:outline-none"
+          className="rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
         >
           {availableModels.map((model) => (
             <option key={model} value={model}>
@@ -96,7 +98,7 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
 
       {/* Temperature 控制 */}
       <div className="flex items-center gap-1.5">
-        <label htmlFor="temperature-input" className="text-gray-500">Temperature</label>
+        <label htmlFor="temperature-input" className="text-muted-foreground">Temperature</label>
         <input
           id="temperature-input"
           type="number"
@@ -105,13 +107,13 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
           step={0.1}
           value={config.temperature}
           onChange={handleTemperatureChange}
-          className="w-16 rounded-md border border-gray-300 px-2 py-1 text-gray-800 focus:border-blue-500 focus:outline-none"
+          className="w-16 rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
         />
       </div>
 
       {/* Max Output Tokens 控制 */}
       <div className="flex items-center gap-1.5">
-        <label htmlFor="max-tokens-input" className="text-gray-500">最大 Tokens</label>
+        <label htmlFor="max-tokens-input" className="text-muted-foreground">最大 Tokens</label>
         <input
           id="max-tokens-input"
           type="number"
@@ -120,7 +122,7 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
           step={1}
           value={config.maxOutputTokens}
           onChange={handleMaxTokensChange}
-          className="w-20 rounded-md border border-gray-300 px-2 py-1 text-gray-800 focus:border-blue-500 focus:outline-none"
+          className="w-20 rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
         />
       </div>
     </div>

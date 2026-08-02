@@ -74,11 +74,13 @@ function CodeCopyButton({ code }: { code: string }) {
     }
   }, [code]);
 
+  // 按钮固定使用浅色系：代码块背景在两种主题下均为深色（--code-block-bg），
+  // 因此按钮文字/背景不随主题变化
   return (
     <button
       type="button"
       onClick={handleCopy}
-      className="absolute right-2 top-2 flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-xs text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/20"
+      className="absolute right-2 top-2 flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-xs text-code-block-fg/80 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/20"
       aria-label={copied ? '已复制' : '复制代码'}
     >
       {copied ? (
@@ -136,7 +138,9 @@ function ChatMessageComponent({
             return (
               <div className="group relative my-3">
                 <CodeCopyButton code={codeText} />
-                <pre className="m-0 overflow-x-auto rounded-lg bg-gray-900 p-3 text-sm text-gray-100">
+                {/* 代码块背景/文字使用 --code-block-bg/--code-block-fg 语义化 token，
+                    深浅色主题下自动适配（浅色为深灰底，深色为近黑底） */}
+                <pre className="m-0 overflow-x-auto rounded-lg bg-code-block-bg p-3 text-sm text-code-block-fg">
                   {children}
                 </pre>
               </div>
@@ -150,7 +154,7 @@ function ChatMessageComponent({
               <code
                 className={cn(
                   isInline
-                    ? 'rounded bg-gray-100 px-1 py-0.5 text-sm font-medium text-rose-600'
+                    ? 'rounded bg-muted px-1 py-0.5 text-sm font-medium text-rose-600 dark:text-rose-400'
                     : 'font-mono text-sm',
                   className
                 )}
@@ -175,24 +179,26 @@ function ChatMessageComponent({
         isUser ? 'items-end' : 'items-start'
       )}
     >
+      {/* 气泡配色使用语义化 token：用户消息主色（primary），AI 消息表面色（surface） */}
       <div
         className={cn(
           'max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed',
           isUser
-            ? 'bg-blue-600 text-white rounded-br-sm'
-            : 'bg-white text-gray-900 shadow-sm border border-gray-200 rounded-bl-sm'
+            ? 'bg-primary text-primary-foreground rounded-br-sm'
+            : 'bg-surface text-foreground shadow-sm border border-border rounded-bl-sm'
         )}
       >
         {isUser ? (
           <div className="whitespace-pre-wrap">{text}</div>
         ) : (
           // prose：Tailwind Typography 提供的默认排版；prose-slate 使用 slate 灰阶；
+          // dark:prose-invert 在深色模式下反转排版色，避免深色背景上文字过暗；
           // 各类 prose-*: 修饰符用于压缩消息气泡内的间距，避免标题/列表/代码块过大
-          <div className="prose prose-sm max-w-none prose-slate prose-p:my-1 prose-pre:my-0 prose-ul:my-1 prose-ol:my-1 prose-headings:mb-2 prose-headings:mt-3">
+          <div className="prose prose-sm max-w-none prose-slate prose-p:my-1 prose-pre:my-0 prose-ul:my-1 prose-ol:my-1 prose-headings:mb-2 prose-headings:mt-3 dark:prose-invert">
             {committedText && markdownContent}
             {/* 待定文本：尚未到达安全边界，使用纯文本轻量渲染，避免高频更新触发完整 Markdown 解析 */}
             {pendingText && (
-              <span className="whitespace-pre-wrap text-gray-900">{pendingText}</span>
+              <span className="whitespace-pre-wrap text-foreground">{pendingText}</span>
             )}
           </div>
         )}
@@ -205,7 +211,7 @@ function ChatMessageComponent({
             type="button"
             onClick={onRegenerate}
             disabled={isRegenerating}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="重新生成"
           >
             <RefreshCw className={cn('h-3.5 w-3.5', isRegenerating && 'animate-spin')} />

@@ -69,23 +69,24 @@ function getErrorTitle(error: Error): string {
 
 /**
  * 错误提示组件：左侧错误图标，中间为标题与详情，下方可选重试按钮。
- * 使用红色系背景，与聊天界面的浅色主题形成明显对比。
+ * 配色使用 error-* 语义化 token：深浅色主题下均为醒目的红色系，
+ * 且与背景保持足够对比度。
  */
 export function ChatError({ error, onRetry, isRetrying }: ChatErrorProps) {
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+    <div className="rounded-lg border border-error-border bg-error-bg px-4 py-3">
       <div className="flex items-start gap-3">
-        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-error-muted" />
         <div className="flex-1">
-          <p className="text-sm font-medium text-red-700">{getErrorTitle(error)}</p>
-          <p className="mt-1 text-sm text-red-600">{error.message}</p>
+          <p className="text-sm font-medium text-error-text">{getErrorTitle(error)}</p>
+          <p className="mt-1 text-sm text-error-muted">{error.message}</p>
 
           {onRetry && (
             <button
               type="button"
               onClick={onRetry}
               disabled={isRetrying}
-              className="mt-2 flex items-center gap-1 rounded-md bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 flex items-center gap-1 rounded-md bg-error-border/40 px-3 py-1.5 text-xs font-medium text-error-text transition-colors hover:bg-error-border/60 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="重试"
             >
               <RefreshCw
