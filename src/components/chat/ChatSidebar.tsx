@@ -46,8 +46,11 @@ export function ChatSidebar({ onCloseMobile }: ChatSidebarProps) {
 
   // 主题相关：侧边栏使用独立的 sidebar-* 语义化 token，
   // 深浅色模式下保持对比度，避免硬编码 gray-900 导致深色模式失效。
+  // 宽度适配：宽度由父容器决定（桌面端父级 w-64 固定宽度；
+  // 移动端抽屉容器 w-4/5 + max-w-72），此处用 w-full 填满父容器，
+  // 避免百分比宽度作用在 auto 宽度的抽屉容器上产生解析异常。
   return (
-    <div className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+    <div className="flex h-full w-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-sidebar-border p-3">
         <button
@@ -58,10 +61,11 @@ export function ChatSidebar({ onCloseMobile }: ChatSidebarProps) {
           <Plus className="h-4 w-4" />
           新建会话
         </button>
+        {/* 关闭按钮：仅移动端显示（md:hidden），p-2.5 保证触控面积 */}
         <button
           type="button"
           onClick={onCloseMobile}
-          className="ml-2 rounded p-2 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground md:hidden"
+          className="ml-2 rounded p-2.5 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground md:hidden"
           aria-label="关闭侧边栏"
         >
           <X className="h-5 w-5" />
@@ -121,7 +125,10 @@ export function ChatSidebarOverlay() {
       {/* Mobile drawer */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-in-out md:hidden',
+          // 抽屉容器自身承担移动端宽度（80% 屏宽，最大 288px），
+          // 内部 ChatSidebar 用 w-full 填满，宽度解析不受 auto 父级影响；
+          // pl-safe 横向屏刘海位于左侧时让出安全区
+          'fixed inset-y-0 left-0 z-50 w-4/5 max-w-72 pl-[env(safe-area-inset-left)] transform transition-transform duration-200 ease-in-out md:hidden',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >

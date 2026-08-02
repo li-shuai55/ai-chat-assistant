@@ -28,10 +28,13 @@ export function ChatLayout() {
 
   // 主题相关：颜色统一使用语义化 token（bg-background 等），
   // 由 <html data-theme> 驱动 CSS 变量，切换主题无需改动任何组件代码。
+  // 高度使用 h-dvh（动态视口高度）：移动端浏览器地址栏/虚拟键盘弹出时会收缩
+  // 视口，dvh 能实时跟随，避免输入框被浏览器 UI 遮挡（iOS 上的 100vh 问题）。
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* 主题切换按钮：固定于视口右上角，保证在任意状态下（无会话空态/加载态/聊天态）都可访问 */}
-      <div className="fixed right-4 top-4 z-30">
+    <div className="flex h-dvh w-full overflow-hidden bg-background">
+      {/* 主题切换按钮：固定于视口右上角，保证在任意状态下（无会话空态/加载态/聊天态）都可访问；
+          位置避开刘海屏安全区（viewport-fit=cover 下右侧/顶部 env 返回真实值） */}
+      <div className="fixed right-[max(env(safe-area-inset-right),1rem)] top-[max(env(safe-area-inset-top),1rem)] z-30">
         <ThemeToggle />
       </div>
       {/* Desktop sidebar */}

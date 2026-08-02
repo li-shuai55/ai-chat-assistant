@@ -75,12 +75,14 @@ function CodeCopyButton({ code }: { code: string }) {
   }, [code]);
 
   // 按钮固定使用浅色系：代码块背景在两种主题下均为深色（--code-block-bg），
-  // 因此按钮文字/背景不随主题变化
+  // 因此按钮文字/背景不随主题变化。
+  // 触屏适配：移动端没有 hover，复制按钮常显（opacity-100）；
+  // 桌面端仅在鼠标悬停代码块时显示（sm:opacity-0 sm:group-hover:opacity-100）。
   return (
     <button
       type="button"
       onClick={handleCopy}
-      className="absolute right-2 top-2 flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-xs text-code-block-fg/80 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/20"
+      className="absolute right-2 top-2 flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-xs text-code-block-fg/80 opacity-100 transition-opacity hover:bg-white/20 sm:opacity-0 sm:group-hover:opacity-100"
       aria-label={copied ? '已复制' : '复制代码'}
     >
       {copied ? (

@@ -18,6 +18,19 @@ export type Theme = 'light' | 'dark';
 /** localStorage 存储键：用于跨会话记忆用户选择 */
 const THEME_STORAGE_KEY = 'theme';
 
+/** 移动端浏览器状态栏底色（与 globals.css 中 --background 一致） */
+const THEME_COLOR_LIGHT = '#ffffff';
+const THEME_COLOR_DARK = '#0a0a0a';
+
+/**
+ * 同步移动端浏览器状态栏底色：<meta name="theme-color"> 在服务端渲染时
+ * 只能给出浅色初始值，这里在切换主题时同步更新，保证状态栏与页面一致。
+ */
+function syncThemeColor(theme: Theme) {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  meta?.setAttribute('content', theme === 'dark' ? THEME_COLOR_DARK : THEME_COLOR_LIGHT);
+}
+
 /**
  * 读取当前主题：优先取 <html> 上的 data-theme 属性。
  * 该属性由 ThemeInitScript 在浏览器首次绘制前写入，因此此处拿到的一定是最终生效值。
@@ -44,6 +57,7 @@ export function useTheme() {
    */
   const setTheme = useCallback((next: Theme) => {
     document.documentElement.setAttribute('data-theme', next);
+    syncThemeColor(next);
     try {
       localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch {

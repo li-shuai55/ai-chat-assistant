@@ -90,7 +90,9 @@ export function ChatMessageList({
   );
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-6">
+    // overscroll-contain：滚动消息列表到边界时阻止滚动链传递（浏览器回退/下拉刷新），
+    // 移动端聊天页的常见体验问题
+    <div ref={containerRef} className="flex-1 overflow-y-auto overscroll-contain px-4 py-6">
       <div className="mx-auto max-w-3xl space-y-5">
         {messages.length === 0 && (
           <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">

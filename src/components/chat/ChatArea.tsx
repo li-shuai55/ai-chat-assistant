@@ -150,8 +150,9 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
   // 主题切换按钮由 ChatLayout 固定于右上角，全局可用。
   return (
     <div className="flex h-full flex-col bg-background">
-      {/* Header */}
-      <div className="flex items-center border-b border-border bg-surface px-4 py-3">
+      {/* Header：顶部预留刘海屏安全区（viewport-fit=cover 生效后 env 返回真实值） */}
+      <div className="flex items-center border-b border-border bg-surface px-4 pb-3 pt-[max(env(safe-area-inset-top),0.75rem)]">
+        {/* 侧边栏开关：移动端打开侧边栏的唯一入口，用 p-2 + 图标保证基础触控面积 */}
         <button
           type="button"
           onClick={toggleSidebar}

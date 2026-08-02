@@ -60,8 +60,10 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
 
   // 主题相关：控制栏使用 surface / border / input / muted 等语义化 token，
   // 深浅色模式下自动适配表单控件配色。
+  // 移动端适配：<sm 时字号提为 16px，避免 iOS 聚焦下拉框/数字输入框时自动放大页面；
+  // 控件间用 flex-wrap 换行，窄屏下自动折行避免横向溢出。
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-3 py-2 text-sm">
+    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-3 py-2 text-base sm:text-sm">
       {/* Provider 选择 */}
       <div className="flex items-center gap-1.5">
         <label htmlFor="provider-select" className="text-muted-foreground">Provider</label>

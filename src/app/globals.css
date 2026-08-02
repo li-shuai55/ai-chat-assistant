@@ -124,3 +124,19 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+/*
+ * 移动端触控优化：
+ * - -webkit-tap-highlight-color: transparent：去掉 iOS Safari 点击元素时的灰色高亮闪烁；
+ * - touch-action: manipulation：告知浏览器点击操作无需等待双击判定，
+ *   消除移动端按钮/链接约 300ms 的双击缩放延迟。
+ */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+[role="button"],
+a {
+  touch-action: manipulation;
+}

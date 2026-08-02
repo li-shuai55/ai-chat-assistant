@@ -19,10 +19,11 @@ export default function Home() {
   }, [hydrated]);
 
   // 服务端渲染或水合未完成时显示占位，避免本地会话数据闪烁丢失；
-  // 颜色使用语义化 token，保证与当前主题（深浅色）一致
+  // 颜色使用语义化 token，保证与当前主题（深浅色）一致；
+  // 高度用 h-dvh 与 ChatLayout 保持一致，避免移动端键盘弹出时占位跳动
   if (typeof window === 'undefined' || !hydrated) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background text-muted-foreground">
+      <div className="flex h-dvh w-full items-center justify-center bg-background text-muted-foreground">
         加载中...
       </div>
     );
