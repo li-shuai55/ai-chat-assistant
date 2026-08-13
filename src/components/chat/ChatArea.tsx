@@ -98,6 +98,7 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
       model: modelConfig.model,
       temperature: modelConfig.temperature,
       maxOutputTokens: modelConfig.maxOutputTokens,
+      systemPrompt: modelConfig.systemPrompt,
     }),
     [modelConfig]
   );

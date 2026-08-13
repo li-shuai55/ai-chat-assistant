@@ -17,6 +17,8 @@ export interface ModelConfig {
   temperature: number;
   /** 最大输出 Token 数 */
   maxOutputTokens: number;
+  /** 系统提示词，会作为 system message 传给模型，但不显示在聊天界面 */
+  systemPrompt?: string;
 }
 
 /** 一个会话：标题、时间戳、消息列表与模型配置 */

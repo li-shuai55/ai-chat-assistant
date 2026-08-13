@@ -2,10 +2,12 @@
 
 /**
  * @file ChatModelControls.tsx
- * @description 模型与生成参数控制栏：Provider、模型、Temperature、Max Output Tokens
+ * @description 模型与生成参数控制栏：Provider、模型、Temperature、Max Output Tokens、System Prompt
  */
-import { Info } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Info } from 'lucide-react';
 import { SUPPORTED_PROVIDERS } from '@/src/lib/ai';
+import { cn } from '@/src/lib/utils';
 import type { ModelConfig, ModelProvider } from '@/src/types/chat';
 
 interface ChatModelControlsProps {
@@ -23,12 +25,15 @@ interface ChatModelControlsProps {
  *    失焦/回车时统一校验并同步到父组件，避免受控组件无法清空的问题。
  * 2. 生成参数范围按 Provider 动态读取，切换 Provider 时若当前值越界自动回退到默认值。
  * 3. 对推理模型（如 deepseek-reasoner）禁用 temperature 并给出提示。
+ * 4. 支持展开编辑 System Prompt，实时保存到当前会话配置。
  */
 export function ChatModelControls({ config, onChange }: ChatModelControlsProps) {
   const providerMeta = SUPPORTED_PROVIDERS[config.provider];
   const availableModels = providerMeta.models;
   const params = providerMeta.generationParams;
   const isReasoningModel = providerMeta.reasoningModels?.includes(config.model) ?? false;
+  const [isSystemPromptOpen, setIsSystemPromptOpen] = useState(false);
+  const hasSystemPrompt = Boolean(config.systemPrompt?.trim());
 
   /** 处理 Provider 切换：同时检查参数范围，越界时回退到新 Provider 的默认值 */
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -101,89 +106,126 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
   // 移动端适配：<sm 时字号提为 16px，避免 iOS 聚焦下拉框/数字输入框时自动放大页面；
   // 控件间用 flex-wrap 换行，窄屏下自动折行避免横向溢出。
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-3 py-2 text-base sm:text-sm">
-      {/* Provider 选择 */}
-      <div className="flex items-center gap-1.5">
-        <label htmlFor="provider-select" className="text-muted-foreground">Provider</label>
-        <select
-          id="provider-select"
-          value={config.provider}
-          onChange={handleProviderChange}
-          className="rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
+    <div className="border-b border-border bg-surface px-3 py-2 text-base sm:text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Provider 选择 */}
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="provider-select" className="text-muted-foreground">Provider</label>
+          <select
+            id="provider-select"
+            value={config.provider}
+            onChange={handleProviderChange}
+            className="rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
+          >
+            {(Object.keys(SUPPORTED_PROVIDERS) as ModelProvider[]).map((provider) => (
+              <option key={provider} value={provider}>
+                {SUPPORTED_PROVIDERS[provider].label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 模型选择 */}
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="model-select" className="text-muted-foreground">模型</label>
+          <select
+            id="model-select"
+            value={config.model}
+            onChange={handleModelChange}
+            className="rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
+          >
+            {availableModels.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Temperature 控制 */}
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="temperature-input" className="text-muted-foreground">Temperature</label>
+          <input
+            id="temperature-input"
+            key={`temperature-${config.provider}-${config.model}`}
+            type="number"
+            min={params.temperature.min}
+            max={params.temperature.max}
+            step={params.temperature.step}
+            defaultValue={config.temperature}
+            onBlur={commitTemperature}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.currentTarget.blur();
+              }
+            }}
+            disabled={isReasoningModel}
+            className="w-16 rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          />
+        </div>
+
+        {/* Max Output Tokens 控制 */}
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="max-tokens-input" className="text-muted-foreground">最大 Tokens</label>
+          <input
+            id="max-tokens-input"
+            key={`max-tokens-${config.provider}-${config.model}`}
+            type="number"
+            min={params.maxOutputTokens.min}
+            max={params.maxOutputTokens.max}
+            step={params.maxOutputTokens.step}
+            defaultValue={config.maxOutputTokens}
+            onBlur={commitMaxTokens}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.currentTarget.blur();
+              }
+            }}
+            className="w-20 rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
+          />
+        </div>
+
+        {/* System Prompt 展开按钮 */}
+        <button
+          type="button"
+          onClick={() => setIsSystemPromptOpen((open) => !open)}
+          aria-expanded={isSystemPromptOpen}
+          className={cn(
+            'ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-sm transition-colors',
+            hasSystemPrompt
+              ? 'bg-primary/10 text-primary hover:bg-primary/20'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          )}
         >
-          {(Object.keys(SUPPORTED_PROVIDERS) as ModelProvider[]).map((provider) => (
-            <option key={provider} value={provider}>
-              {SUPPORTED_PROVIDERS[provider].label}
-            </option>
-          ))}
-        </select>
+          系统提示
+          <ChevronDown
+            className={cn('h-4 w-4 transition-transform', isSystemPromptOpen && 'rotate-180')}
+          />
+        </button>
+
+        {/* 推理模型提示 */}
+        {isReasoningModel && (
+          <div className="flex w-full items-center gap-1 text-xs text-muted-foreground sm:w-auto">
+            <Info className="h-3.5 w-3.5 shrink-0" />
+            <span>当前为推理模型，Temperature 固定，修改不生效</span>
+          </div>
+        )}
       </div>
 
-      {/* 模型选择 */}
-      <div className="flex items-center gap-1.5">
-        <label htmlFor="model-select" className="text-muted-foreground">模型</label>
-        <select
-          id="model-select"
-          value={config.model}
-          onChange={handleModelChange}
-          className="rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
-        >
-          {availableModels.map((model) => (
-            <option key={model} value={model}>
-              {model}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Temperature 控制 */}
-      <div className="flex items-center gap-1.5">
-        <label htmlFor="temperature-input" className="text-muted-foreground">Temperature</label>
-        <input
-          id="temperature-input"
-          key={`temperature-${config.provider}-${config.model}`}
-          type="number"
-          min={params.temperature.min}
-          max={params.temperature.max}
-          step={params.temperature.step}
-          defaultValue={config.temperature}
-          onBlur={commitTemperature}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.currentTarget.blur();
-            }
-          }}
-          disabled={isReasoningModel}
-          className="w-16 rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-        />
-      </div>
-
-      {/* Max Output Tokens 控制 */}
-      <div className="flex items-center gap-1.5">
-        <label htmlFor="max-tokens-input" className="text-muted-foreground">最大 Tokens</label>
-        <input
-          id="max-tokens-input"
-          key={`max-tokens-${config.provider}-${config.model}`}
-          type="number"
-          min={params.maxOutputTokens.min}
-          max={params.maxOutputTokens.max}
-          step={params.maxOutputTokens.step}
-          defaultValue={config.maxOutputTokens}
-          onBlur={commitMaxTokens}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.currentTarget.blur();
-            }
-          }}
-          className="w-20 rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
-        />
-      </div>
-
-      {/* 推理模型提示 */}
-      {isReasoningModel && (
-        <div className="flex w-full items-center gap-1 text-xs text-muted-foreground sm:w-auto">
-          <Info className="h-3.5 w-3.5 shrink-0" />
-          <span>当前为推理模型，Temperature 固定，修改不生效</span>
+      {/* System Prompt 编辑区 */}
+      {isSystemPromptOpen && (
+        <div className="mt-2">
+          <label htmlFor="system-prompt-input" className="sr-only">
+            系统提示词
+          </label>
+          <textarea
+            id="system-prompt-input"
+            value={config.systemPrompt ?? ''}
+            onChange={(e) => onChange({ systemPrompt: e.target.value })}
+            placeholder="输入系统提示词，会作为 system message 发给模型，不会显示在聊天界面..."
+            rows={3}
+            className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          />
         </div>
       )}
     </div>

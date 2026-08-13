@@ -17,6 +17,7 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   model: 'qwen-plus',
   temperature: 0.7,
   maxOutputTokens: 2048,
+  systemPrompt: '',
 };
 
 /** 会话全局状态：会话列表、当前活跃会话、侧边栏开关与持久化水合标记 */
@@ -185,13 +186,14 @@ export const useChatStore = create<ChatStore>()(
         activeSessionId: state.activeSessionId,
         isSidebarOpen: state.isSidebarOpen,
       }),
-      // 合并且迁移旧数据：早期没有 modelConfig 的会话自动补上默认配置
+      // 合并且迁移旧数据：早期没有 modelConfig 或缺少新增字段的会话，
+      // 用 DEFAULT_MODEL_CONFIG 兜底后再覆盖旧值，确保新增字段（如 systemPrompt）自动补上。
       merge: (persistedState: unknown, currentState) => {
         const persisted = persistedState as Partial<ChatStoreState> | undefined;
         const mergedSessions =
           persisted?.sessions?.map((session) => ({
             ...session,
-            modelConfig: session.modelConfig ?? { ...DEFAULT_MODEL_CONFIG },
+            modelConfig: { ...DEFAULT_MODEL_CONFIG, ...session.modelConfig },
           })) ?? currentState.sessions;
 
         return {

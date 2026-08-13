@@ -22,6 +22,7 @@ interface ChatRequestBody {
   model?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  systemPrompt?: string;
 }
 
 /**
@@ -141,7 +142,7 @@ function validateGenerationParams(
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as ChatRequestBody;
-    const { messages, provider, model, temperature, maxOutputTokens } = body;
+    const { messages, provider, model, temperature, maxOutputTokens, systemPrompt } = body;
 
     // 基础参数校验：messages 必须为数组，避免后续转换异常
     if (!Array.isArray(messages)) {
@@ -177,6 +178,7 @@ export async function POST(req: Request) {
       messages: modelMessages,
       temperature,
       maxOutputTokens,
+      system: systemPrompt,
     });
 
     // 注：toUIMessageStreamResponse 在 ai v7 已标记 deprecated，与 DefaultChatTransport 配套可用
