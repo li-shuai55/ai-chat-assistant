@@ -29,7 +29,19 @@ export const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY,
 });
 
-/** 单个 Provider 的元数据：显示名称、默认模型、可选模型列表 */
+/** 单个生成参数的范围与步长 */
+interface GenerationParamRange {
+  /** 最小值 */
+  min: number;
+  /** 最大值 */
+  max: number;
+  /** 步长 */
+  step: number;
+  /** 默认值 */
+  default: number;
+}
+
+/** 单个 Provider 的元数据：显示名称、默认模型、可选模型列表、生成参数范围 */
 interface ProviderMeta {
   /** 界面显示名称 */
   label: string;
@@ -37,6 +49,13 @@ interface ProviderMeta {
   defaultModel: string;
   /** 该 Provider 下可供切换的模型 ID 列表 */
   models: string[];
+  /** 生成参数范围：按 Provider 区分，避免对不支持的模型传入非法值 */
+  generationParams: {
+    temperature: GenerationParamRange;
+    maxOutputTokens: GenerationParamRange;
+  };
+  /** 固定 temperature 的推理模型列表（如 DeepSeek-R1），前端会禁用温度调节并给出提示 */
+  reasoningModels?: string[];
 }
 
 /**
@@ -48,21 +67,40 @@ export const SUPPORTED_PROVIDERS: Record<ModelProvider, ProviderMeta> = {
     label: '阿里百炼',
     defaultModel: 'qwen-plus',
     models: ['qwen-plus', 'qwen-max', 'qwen-turbo'],
+    generationParams: {
+      temperature: { min: 0, max: 2, step: 0.1, default: 0.7 },
+      maxOutputTokens: { min: 1, max: 8192, step: 1, default: 2048 },
+    },
   },
   openai: {
     label: 'OpenAI',
     defaultModel: 'gpt-4o',
     models: ['gpt-4o', 'gpt-4o-mini'],
+    generationParams: {
+      temperature: { min: 0, max: 2, step: 0.1, default: 0.7 },
+      maxOutputTokens: { min: 1, max: 16384, step: 1, default: 4096 },
+    },
   },
   anthropic: {
     label: 'Anthropic',
     defaultModel: 'claude-3-5-sonnet-20241022',
     models: ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'],
+    generationParams: {
+      // Anthropic 官方 temperature 范围为 0–1
+      temperature: { min: 0, max: 1, step: 0.1, default: 0.7 },
+      maxOutputTokens: { min: 1, max: 8192, step: 1, default: 4096 },
+    },
   },
   deepseek: {
     label: 'DeepSeek',
     defaultModel: 'deepseek-chat',
     models: ['deepseek-chat', 'deepseek-reasoner'],
+    generationParams: {
+      temperature: { min: 0, max: 2, step: 0.1, default: 0.7 },
+      maxOutputTokens: { min: 1, max: 8192, step: 1, default: 2048 },
+    },
+    // DeepSeek-R1 为推理模型，temperature 通常固定为 1，用户设置不生效
+    reasoningModels: ['deepseek-reasoner'],
   },
 };
 

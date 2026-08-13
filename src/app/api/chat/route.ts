@@ -98,21 +98,37 @@ function validateModelConfig(
 
 /**
  * 校验生成参数范围。
- * temperature 推荐 0–2；maxOutputTokens 限制为正整数且不超过 8192。
+ * 范围从 SUPPORTED_PROVIDERS 中按 Provider 读取，避免前端传入该 Provider 不支持的值。
  */
 function validateGenerationParams(
+  provider: ModelProvider,
   temperature: number | undefined,
   maxOutputTokens: number | undefined
 ): { ok: true } | { ok: false; message: string } {
-  if (temperature !== undefined && (temperature < 0 || temperature > 2 || Number.isNaN(temperature))) {
-    return { ok: false, message: 'temperature 必须在 0 到 2 之间' };
+  const { generationParams } = SUPPORTED_PROVIDERS[provider];
+
+  if (
+    temperature !== undefined &&
+    (temperature < generationParams.temperature.min ||
+      temperature > generationParams.temperature.max ||
+      Number.isNaN(temperature))
+  ) {
+    return {
+      ok: false,
+      message: `temperature 必须在 ${generationParams.temperature.min} 到 ${generationParams.temperature.max} 之间`,
+    };
   }
 
   if (
     maxOutputTokens !== undefined &&
-    (!Number.isInteger(maxOutputTokens) || maxOutputTokens < 1 || maxOutputTokens > 8192)
+    (!Number.isInteger(maxOutputTokens) ||
+      maxOutputTokens < generationParams.maxOutputTokens.min ||
+      maxOutputTokens > generationParams.maxOutputTokens.max)
   ) {
-    return { ok: false, message: 'maxOutputTokens 必须是 1–8192 的整数' };
+    return {
+      ok: false,
+      message: `maxOutputTokens 必须是 ${generationParams.maxOutputTokens.min}–${generationParams.maxOutputTokens.max} 的整数`,
+    };
   }
 
   return { ok: true };
@@ -147,7 +163,7 @@ export async function POST(req: Request) {
     }
 
     // 校验生成参数范围
-    const paramsValidation = validateGenerationParams(temperature, maxOutputTokens);
+    const paramsValidation = validateGenerationParams(resolvedProvider, temperature, maxOutputTokens);
     if (!paramsValidation.ok) {
       return NextResponse.json({ error: paramsValidation.message }, { status: 400 });
     }

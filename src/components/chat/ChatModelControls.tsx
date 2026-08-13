@@ -4,6 +4,7 @@
  * @file ChatModelControls.tsx
  * @description 模型与生成参数控制栏：Provider、模型、Temperature、Max Output Tokens
  */
+import { Info } from 'lucide-react';
 import { SUPPORTED_PROVIDERS } from '@/src/lib/ai';
 import type { ModelConfig, ModelProvider } from '@/src/types/chat';
 
@@ -14,48 +15,85 @@ interface ChatModelControlsProps {
   onChange: (config: Partial<ModelConfig>) => void;
 }
 
-/** temperature 输入允许的最小/最大值 */
-const TEMPERATURE_MIN = 0;
-const TEMPERATURE_MAX = 2;
-
-/** maxOutputTokens 输入允许的最小/最大值 */
-const MAX_TOKENS_MIN = 1;
-const MAX_TOKENS_MAX = 8192;
-
 /**
  * 模型控制组件。
- * Provider 切换时自动回退到该 Provider 的默认模型，避免选中不存在的模型组合。
+ *
+ * 改进点：
+ * 1. 数字输入框采用非受控模式（key 随 Provider/模型重置），允许用户临时清空，
+ *    失焦/回车时统一校验并同步到父组件，避免受控组件无法清空的问题。
+ * 2. 生成参数范围按 Provider 动态读取，切换 Provider 时若当前值越界自动回退到默认值。
+ * 3. 对推理模型（如 deepseek-reasoner）禁用 temperature 并给出提示。
  */
 export function ChatModelControls({ config, onChange }: ChatModelControlsProps) {
   const providerMeta = SUPPORTED_PROVIDERS[config.provider];
   const availableModels = providerMeta.models;
+  const params = providerMeta.generationParams;
+  const isReasoningModel = providerMeta.reasoningModels?.includes(config.model) ?? false;
 
-  /** 处理 Provider 切换 */
+  /** 处理 Provider 切换：同时检查参数范围，越界时回退到新 Provider 的默认值 */
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProvider = e.target.value as ModelProvider;
-    const newDefaultModel = SUPPORTED_PROVIDERS[newProvider].defaultModel;
-    onChange({ provider: newProvider, model: newDefaultModel });
+    const newProviderMeta = SUPPORTED_PROVIDERS[newProvider];
+    const changes: Partial<ModelConfig> = {
+      provider: newProvider,
+      model: newProviderMeta.defaultModel,
+    };
+
+    if (
+      config.temperature < newProviderMeta.generationParams.temperature.min ||
+      config.temperature > newProviderMeta.generationParams.temperature.max
+    ) {
+      changes.temperature = newProviderMeta.generationParams.temperature.default;
+    }
+
+    if (
+      config.maxOutputTokens < newProviderMeta.generationParams.maxOutputTokens.min ||
+      config.maxOutputTokens > newProviderMeta.generationParams.maxOutputTokens.max
+    ) {
+      changes.maxOutputTokens = newProviderMeta.generationParams.maxOutputTokens.default;
+    }
+
+    onChange(changes);
   };
 
-  /** 处理模型切换 */
+  /** 处理模型切换；若切到推理模型，自动将 temperature 回退到默认值 */
   const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange({ model: e.target.value });
+    const newModel = e.target.value;
+    const changes: Partial<ModelConfig> = { model: newModel };
+
+    if (providerMeta.reasoningModels?.includes(newModel)) {
+      changes.temperature = params.temperature.default;
+    }
+
+    onChange(changes);
   };
 
-  /** 处理 temperature 数值变化，超出范围时按边界截断 */
-  const handleTemperatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = parseFloat(e.target.value);
-    if (Number.isNaN(raw)) return;
-    const clamped = Math.min(Math.max(raw, TEMPERATURE_MIN), TEMPERATURE_MAX);
+  /** 校验并提交 temperature */
+  const commitTemperature = (e: React.FocusEvent<HTMLInputElement>) => {
+    const parsed = parseFloat(e.target.value);
+    if (Number.isNaN(parsed)) {
+      // 空值或非法值：恢复为当前已保存值
+      e.target.value = String(config.temperature);
+      return;
+    }
+
+    const clamped = Math.min(Math.max(parsed, params.temperature.min), params.temperature.max);
     onChange({ temperature: clamped });
+    e.target.value = String(clamped);
   };
 
-  /** 处理 maxOutputTokens 数值变化，超出范围时按边界截断 */
-  const handleMaxTokensChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = parseInt(e.target.value, 10);
-    if (Number.isNaN(raw)) return;
-    const clamped = Math.min(Math.max(raw, MAX_TOKENS_MIN), MAX_TOKENS_MAX);
-    onChange({ maxOutputTokens: clamped });
+  /** 校验并提交 maxOutputTokens */
+  const commitMaxTokens = (e: React.FocusEvent<HTMLInputElement>) => {
+    const parsed = parseInt(e.target.value, 10);
+    if (Number.isNaN(parsed)) {
+      e.target.value = String(config.maxOutputTokens);
+      return;
+    }
+
+    const clamped = Math.min(Math.max(parsed, params.maxOutputTokens.min), params.maxOutputTokens.max);
+    const rounded = Math.round(clamped);
+    onChange({ maxOutputTokens: rounded });
+    e.target.value = String(rounded);
   };
 
   // 主题相关：控制栏使用 surface / border / input / muted 等语义化 token，
@@ -103,13 +141,20 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
         <label htmlFor="temperature-input" className="text-muted-foreground">Temperature</label>
         <input
           id="temperature-input"
+          key={`temperature-${config.provider}-${config.model}`}
           type="number"
-          min={TEMPERATURE_MIN}
-          max={TEMPERATURE_MAX}
-          step={0.1}
-          value={config.temperature}
-          onChange={handleTemperatureChange}
-          className="w-16 rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
+          min={params.temperature.min}
+          max={params.temperature.max}
+          step={params.temperature.step}
+          defaultValue={config.temperature}
+          onBlur={commitTemperature}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.currentTarget.blur();
+            }
+          }}
+          disabled={isReasoningModel}
+          className="w-16 rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
         />
       </div>
 
@@ -118,15 +163,29 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
         <label htmlFor="max-tokens-input" className="text-muted-foreground">最大 Tokens</label>
         <input
           id="max-tokens-input"
+          key={`max-tokens-${config.provider}-${config.model}`}
           type="number"
-          min={MAX_TOKENS_MIN}
-          max={MAX_TOKENS_MAX}
-          step={1}
-          value={config.maxOutputTokens}
-          onChange={handleMaxTokensChange}
+          min={params.maxOutputTokens.min}
+          max={params.maxOutputTokens.max}
+          step={params.maxOutputTokens.step}
+          defaultValue={config.maxOutputTokens}
+          onBlur={commitMaxTokens}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.currentTarget.blur();
+            }
+          }}
           className="w-20 rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
         />
       </div>
+
+      {/* 推理模型提示 */}
+      {isReasoningModel && (
+        <div className="flex w-full items-center gap-1 text-xs text-muted-foreground sm:w-auto">
+          <Info className="h-3.5 w-3.5 shrink-0" />
+          <span>当前为推理模型，Temperature 固定，修改不生效</span>
+        </div>
+      )}
     </div>
   );
 }
