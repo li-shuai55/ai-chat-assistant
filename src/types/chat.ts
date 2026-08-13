@@ -7,6 +7,24 @@ import type { UIMessage } from 'ai';
 /** 支持的 AI Provider 标识 */
 export type ModelProvider = 'bailian' | 'openai' | 'anthropic' | 'deepseek';
 
+/** Prompt 模板：可快速填充 system prompt 与可选模型参数 */
+export interface PromptTemplate {
+  /** 模板唯一标识 */
+  id: string;
+  /** 模板显示名称 */
+  name: string;
+  /** 系统提示词 */
+  systemPrompt: string;
+  /** 应用时是否覆盖 Provider；未指定则只填充 systemPrompt */
+  provider?: ModelProvider;
+  /** 应用时是否覆盖模型 */
+  model?: string;
+  /** 应用时是否覆盖温度 */
+  temperature?: number;
+  /** 应用时是否覆盖最大输出 Token 数 */
+  maxOutputTokens?: number;
+}
+
 /** 单条会话的模型与生成参数配置 */
 export interface ModelConfig {
   /** 当前选用的 Provider */

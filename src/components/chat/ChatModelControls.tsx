@@ -2,15 +2,18 @@
 
 /**
  * @file ChatModelControls.tsx
- * @description 模型与生成参数控制栏：Provider、模型、Temperature、Max Output Tokens、System Prompt
+ * @description 模型与生成参数控制栏：Provider、模型、Temperature、Max Output Tokens、System Prompt、Prompt 模板
  */
 import { useState } from 'react';
-import { ChevronDown, Info } from 'lucide-react';
+import { ChevronDown, Info, Plus, Trash2 } from 'lucide-react';
 import { SUPPORTED_PROVIDERS } from '@/src/lib/ai';
 import { cn } from '@/src/lib/utils';
-import type { ModelConfig, ModelProvider } from '@/src/types/chat';
+import { useChatStore } from '@/src/stores/chatStore';
+import type { ModelConfig, ModelProvider, PromptTemplate } from '@/src/types/chat';
 
 interface ChatModelControlsProps {
+  /** 当前会话 ID，用于应用 Prompt 模板 */
+  sessionId: string;
   /** 当前会话的模型配置 */
   config: ModelConfig;
   /** 配置发生变化时的回调（支持部分更新） */
@@ -26,14 +29,22 @@ interface ChatModelControlsProps {
  * 2. 生成参数范围按 Provider 动态读取，切换 Provider 时若当前值越界自动回退到默认值。
  * 3. 对推理模型（如 deepseek-reasoner）禁用 temperature 并给出提示。
  * 4. 支持展开编辑 System Prompt，实时保存到当前会话配置。
+ * 5. 支持 Prompt 模板预设：一键应用到当前会话，并提供前端本地管理（增删改）。
  */
-export function ChatModelControls({ config, onChange }: ChatModelControlsProps) {
+export function ChatModelControls({ sessionId, config, onChange }: ChatModelControlsProps) {
   const providerMeta = SUPPORTED_PROVIDERS[config.provider];
   const availableModels = providerMeta.models;
   const params = providerMeta.generationParams;
   const isReasoningModel = providerMeta.reasoningModels?.includes(config.model) ?? false;
   const [isSystemPromptOpen, setIsSystemPromptOpen] = useState(false);
+  const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
   const hasSystemPrompt = Boolean(config.systemPrompt?.trim());
+
+  const promptTemplates = useChatStore((state) => state.promptTemplates);
+  const applyPromptTemplate = useChatStore((state) => state.applyPromptTemplate);
+  const addPromptTemplate = useChatStore((state) => state.addPromptTemplate);
+  const updatePromptTemplate = useChatStore((state) => state.updatePromptTemplate);
+  const deletePromptTemplate = useChatStore((state) => state.deletePromptTemplate);
 
   /** 处理 Provider 切换：同时检查参数范围，越界时回退到新 Provider 的默认值 */
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -99,6 +110,25 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
     const rounded = Math.round(clamped);
     onChange({ maxOutputTokens: rounded });
     e.target.value = String(rounded);
+  };
+
+  /** 应用选中的 Prompt 模板到当前会话 */
+  const handleApplyTemplate = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const templateId = e.target.value;
+    if (!templateId) return;
+    applyPromptTemplate(sessionId, templateId);
+    // 应用模板后自动展开 system prompt，方便用户查看/二次编辑
+    setIsSystemPromptOpen(true);
+    // 重置下拉框为占位选项，表示这是一个动作而非状态
+    e.target.value = '';
+  };
+
+  /** 新建空模板 */
+  const handleAddTemplate = () => {
+    addPromptTemplate({
+      name: '新模板',
+      systemPrompt: '',
+    });
   };
 
   // 主题相关：控制栏使用 surface / border / input / muted 等语义化 token，
@@ -185,23 +215,60 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
           />
         </div>
 
-        {/* System Prompt 展开按钮 */}
-        <button
-          type="button"
-          onClick={() => setIsSystemPromptOpen((open) => !open)}
-          aria-expanded={isSystemPromptOpen}
-          className={cn(
-            'ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-sm transition-colors',
-            hasSystemPrompt
-              ? 'bg-primary/10 text-primary hover:bg-primary/20'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-          )}
-        >
-          系统提示
-          <ChevronDown
-            className={cn('h-4 w-4 transition-transform', isSystemPromptOpen && 'rotate-180')}
-          />
-        </button>
+        {/* Prompt 模板应用 */}
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="template-select" className="text-muted-foreground">模板</label>
+          <select
+            id="template-select"
+            defaultValue=""
+            onChange={handleApplyTemplate}
+            className="rounded-md border border-input bg-surface px-2 py-1 text-foreground focus:border-primary focus:outline-none"
+          >
+            <option value="" disabled>应用模板…</option>
+            {promptTemplates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 右侧操作按钮组 */}
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setIsTemplateManagerOpen((open) => !open)}
+            aria-expanded={isTemplateManagerOpen}
+            className={cn(
+              'flex items-center gap-1 rounded-md px-2 py-1 text-sm transition-colors',
+              isTemplateManagerOpen
+                ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            管理模板
+            <ChevronDown
+              className={cn('h-4 w-4 transition-transform', isTemplateManagerOpen && 'rotate-180')}
+            />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsSystemPromptOpen((open) => !open)}
+            aria-expanded={isSystemPromptOpen}
+            className={cn(
+              'flex items-center gap-1 rounded-md px-2 py-1 text-sm transition-colors',
+              hasSystemPrompt
+                ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            系统提示
+            <ChevronDown
+              className={cn('h-4 w-4 transition-transform', isSystemPromptOpen && 'rotate-180')}
+            />
+          </button>
+        </div>
 
         {/* 推理模型提示 */}
         {isReasoningModel && (
@@ -228,6 +295,70 @@ export function ChatModelControls({ config, onChange }: ChatModelControlsProps) 
           />
         </div>
       )}
+
+      {/* Prompt 模板管理区 */}
+      {isTemplateManagerOpen && (
+        <div className="mt-2 space-y-2">
+          {promptTemplates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">暂无 Prompt 模板</p>
+          ) : (
+            promptTemplates.map((template) => (
+              <PromptTemplateEditor
+                key={template.id}
+                template={template}
+                onUpdate={updatePromptTemplate}
+                onDelete={deletePromptTemplate}
+              />
+            ))
+          )}
+          <button
+            type="button"
+            onClick={handleAddTemplate}
+            className="flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-input py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Plus className="h-4 w-4" />
+            新建模板
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 单个 Prompt 模板编辑器 */
+interface PromptTemplateEditorProps {
+  template: PromptTemplate;
+  onUpdate: (id: string, updates: Partial<Omit<PromptTemplate, 'id'>>) => void;
+  onDelete: (id: string) => void;
+}
+
+function PromptTemplateEditor({ template, onUpdate, onDelete }: PromptTemplateEditorProps) {
+  return (
+    <div className="rounded-md border border-input bg-surface p-2">
+      <div className="mb-2 flex items-center gap-2">
+        <input
+          type="text"
+          value={template.name}
+          onChange={(e) => onUpdate(template.id, { name: e.target.value })}
+          placeholder="模板名称"
+          className="flex-1 rounded-md border border-input bg-surface px-2 py-1 text-sm text-foreground focus:border-primary focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => onDelete(template.id)}
+          className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          aria-label="删除模板"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+      <textarea
+        value={template.systemPrompt}
+        onChange={(e) => onUpdate(template.id, { systemPrompt: e.target.value })}
+        placeholder="输入系统提示词..."
+        rows={2}
+        className="w-full resize-y rounded-md border border-input bg-surface px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+      />
     </div>
   );
 }

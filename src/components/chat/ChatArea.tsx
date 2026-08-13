@@ -181,6 +181,7 @@ export function ChatArea({ session, transport }: ChatAreaProps) {
 
       {/* 模型与生成参数控制栏：按会话独立配置 */}
       <ChatModelControls
+        sessionId={session.id}
         config={modelConfig}
         onChange={(config) => updateSessionModelConfig(session.id, config)}
       />

@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { UIMessage } from 'ai';
-import type { ChatSession, ModelConfig } from '@/src/types/chat';
+import type { ChatSession, ModelConfig, PromptTemplate } from '@/src/types/chat';
 import { generateId, truncateText } from '@/src/lib/utils';
 
 /** 新建会话的默认标题；maybeAutoTitle 据此判断是否需要自动命名 */
@@ -20,15 +20,44 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   systemPrompt: '',
 };
 
-/** 会话全局状态：会话列表、当前活跃会话、侧边栏开关与持久化水合标记 */
+/** 内置 Prompt 模板，首次使用或重置时提供默认选项 */
+export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
+  {
+    id: 'default-general',
+    name: '通用助手',
+    systemPrompt: '你是一个 helpful assistant，请用简洁清晰的中文回答用户问题。',
+  },
+  {
+    id: 'default-coder',
+    name: '代码助手',
+    systemPrompt:
+      '你是一位资深软件工程师，擅长代码解释、调试与重构。回答时请优先给出可运行的代码片段，并简要说明关键逻辑。',
+  },
+  {
+    id: 'default-translator',
+    name: '翻译助手',
+    systemPrompt:
+      '你是一名专业翻译。请将用户输入的内容翻译成自然、地道的中文，保留原始格式与专有名词，不添加额外解释。',
+  },
+  {
+    id: 'default-meeting',
+    name: '会议纪要',
+    systemPrompt:
+      '你是一名会议助理。请将用户提供的会议内容整理为结构化的会议纪要，包含：议题、关键结论、待办事项（负责人/截止时间）。',
+  },
+];
+
+/** 会话全局状态：会话列表、当前活跃会话、侧边栏开关、Prompt 模板与持久化水合标记 */
 interface ChatStoreState {
   sessions: ChatSession[];
   activeSessionId: string | null;
   isSidebarOpen: boolean;
   hydrated: boolean;
+  /** Prompt 模板列表，前端本地管理 */
+  promptTemplates: PromptTemplate[];
 }
 
-/** 会话操作：创建/切换/重命名/删除/更新消息/自动命名/侧边栏控制 */
+/** 会话操作：创建/切换/重命名/删除/更新消息/自动命名/侧边栏控制/Prompt 模板管理 */
 interface ChatStoreActions {
   setHydrated: (value: boolean) => void;
   createSession: () => string;
@@ -41,6 +70,14 @@ interface ChatStoreActions {
   touchSession: (id: string) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  /** 添加 Prompt 模板 */
+  addPromptTemplate: (template: Omit<PromptTemplate, 'id'>) => void;
+  /** 更新 Prompt 模板 */
+  updatePromptTemplate: (id: string, updates: Partial<Omit<PromptTemplate, 'id'>>) => void;
+  /** 删除 Prompt 模板；删除的是内置模板时自动过滤 */
+  deletePromptTemplate: (id: string) => void;
+  /** 将指定模板应用到指定会话 */
+  applyPromptTemplate: (sessionId: string, templateId: string) => void;
 }
 
 type ChatStore = ChatStoreState & ChatStoreActions;
@@ -52,6 +89,8 @@ export const useChatStore = create<ChatStore>()(
       activeSessionId: null,
       isSidebarOpen: true,
       hydrated: false,
+      // 首次加载时使用内置默认模板；后续由 persist 从 localStorage 覆盖
+      promptTemplates: DEFAULT_PROMPT_TEMPLATES,
 
       setHydrated: (value) => set({ hydrated: value }),
 
@@ -175,6 +214,56 @@ export const useChatStore = create<ChatStore>()(
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
       /** 显式设置侧边栏开关（移动端遮罩/抽屉使用） */
       setSidebarOpen: (open) => set({ isSidebarOpen: open }),
+
+      /** 添加 Prompt 模板 */
+      addPromptTemplate: (template) => {
+        const newTemplate: PromptTemplate = { ...template, id: generateId() };
+        set((state) => ({
+          promptTemplates: [newTemplate, ...state.promptTemplates],
+        }));
+      },
+
+      /** 更新 Prompt 模板 */
+      updatePromptTemplate: (id, updates) => {
+        set((state) => ({
+          promptTemplates: state.promptTemplates.map((template) =>
+            template.id === id ? { ...template, ...updates } : template
+          ),
+        }));
+      },
+
+      /** 删除 Prompt 模板 */
+      deletePromptTemplate: (id) => {
+        set((state) => ({
+          promptTemplates: state.promptTemplates.filter((template) => template.id !== id),
+        }));
+      },
+
+      /** 将指定模板应用到指定会话 */
+      applyPromptTemplate: (sessionId, templateId) => {
+        const { promptTemplates, sessions } = get();
+        const template = promptTemplates.find((t) => t.id === templateId);
+        if (!template) return;
+
+        const session = sessions.find((s) => s.id === sessionId);
+        if (!session) return;
+
+        const changes: Partial<ModelConfig> = {
+          systemPrompt: template.systemPrompt,
+        };
+
+        // 模板中显式提供的模型/参数才覆盖当前会话配置
+        if (template.provider !== undefined) changes.provider = template.provider;
+        if (template.model !== undefined) changes.model = template.model;
+        if (template.temperature !== undefined) changes.temperature = template.temperature;
+        if (template.maxOutputTokens !== undefined) changes.maxOutputTokens = template.maxOutputTokens;
+
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === sessionId ? { ...s, modelConfig: { ...s.modelConfig, ...changes } } : s
+          ),
+        }));
+      },
     }),
     {
       name: 'chat-sessions',
@@ -185,6 +274,7 @@ export const useChatStore = create<ChatStore>()(
         sessions: state.sessions,
         activeSessionId: state.activeSessionId,
         isSidebarOpen: state.isSidebarOpen,
+        promptTemplates: state.promptTemplates,
       }),
       // 合并且迁移旧数据：早期没有 modelConfig 或缺少新增字段的会话，
       // 用 DEFAULT_MODEL_CONFIG 兜底后再覆盖旧值，确保新增字段（如 systemPrompt）自动补上。
@@ -200,6 +290,8 @@ export const useChatStore = create<ChatStore>()(
           ...currentState,
           ...persisted,
           sessions: mergedSessions,
+          // 旧数据没有 promptTemplates 时，使用内置默认模板兜底
+          promptTemplates: persisted?.promptTemplates ?? currentState.promptTemplates,
         };
       },
       onRehydrateStorage: () => (state, error) => {
