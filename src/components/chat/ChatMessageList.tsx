@@ -14,6 +14,15 @@ import type { UIMessage } from 'ai';
 import { ChatMessage } from './ChatMessage';
 import { ChatError } from './ChatError';
 
+/** 提取 UI message 中的文本内容 */
+function getMessageText(message?: UIMessage): string {
+  if (!message) return '';
+  return message.parts
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text)
+    .join('');
+}
+
 interface ChatMessageListProps {
   messages: UIMessage[];
   error?: Error | null;
@@ -101,23 +110,36 @@ export function ChatMessageList({
           </div>
         )}
 
-        {messages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            message={message}
-            // 仅对最后一条 assistant 消息启用流式优化，避免历史消息也进行拆分逻辑
-            isStreaming={
-              isStreaming && message.id === lastAssistantMessageId ? true : undefined
-            }
-            // 仅对最后一条 assistant 消息暴露重新生成入口，避免历史消息反复触发
-            onRegenerate={
-              message.id === lastAssistantMessageId
-                ? () => handleRegenerate(message.id)
-                : undefined
-            }
-            isRegenerating={isRegenerating}
-          />
-        ))}
+        {messages.map((message, index) => {
+          // 对 assistant 消息，找到它前面最近一条用户消息作为检索 query
+          const precedingUser =
+            message.role === 'assistant'
+              ? messages
+                  .slice(0, index)
+                  .reverse()
+                  .find((m) => m.role === 'user')
+              : undefined;
+          const query = precedingUser ? getMessageText(precedingUser) : undefined;
+
+          return (
+            <ChatMessage
+              key={message.id}
+              message={message}
+              query={query}
+              // 仅对最后一条 assistant 消息启用流式优化，避免历史消息也进行拆分逻辑
+              isStreaming={
+                isStreaming && message.id === lastAssistantMessageId ? true : undefined
+              }
+              // 仅对最后一条 assistant 消息暴露重新生成入口，避免历史消息反复触发
+              onRegenerate={
+                message.id === lastAssistantMessageId
+                  ? () => handleRegenerate(message.id)
+                  : undefined
+              }
+              isRegenerating={isRegenerating}
+            />
+          );
+        })}
 
         {/* 助手尚未返回首段内容时，显示打字动画 */}
         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (

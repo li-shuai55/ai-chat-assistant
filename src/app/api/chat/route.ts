@@ -13,6 +13,8 @@ import {
 } from 'ai';
 import { getModel, isSupportedModel, SUPPORTED_PROVIDERS } from '@/src/lib/ai';
 import type { ModelProvider } from '@/src/types/chat';
+import { retrieveRelevantChunks } from '@/src/lib/retrieval';
+import { buildRagSystemPrompt } from '@/src/lib/rag-prompt';
 import { NextResponse } from 'next/server';
 
 /** 客户端请求体中携带的模型配置字段 */
@@ -23,6 +25,8 @@ interface ChatRequestBody {
   temperature?: number;
   maxOutputTokens?: number;
   systemPrompt?: string;
+  /** 可选：指定要检索的知识库 ID；不传则检索全部 */
+  knowledgeBaseId?: string;
 }
 
 /**
@@ -136,13 +140,24 @@ function validateGenerationParams(
 }
 
 /**
+ * 从 UI message 中提取纯文本内容。
+ * AI SDK v4/v7 的 UIMessage 使用 parts 结构，需要过滤 text part。
+ */
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text)
+    .join('');
+}
+
+/**
  * 对话接口：客户端经 DefaultChatTransport 发送 UI messages 与模型配置，
  * 服务端转为 model messages 后按指定 Provider/模型/参数流式生成，并以 UI message 流返回。
  */
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as ChatRequestBody;
-    const { messages, provider, model, temperature, maxOutputTokens, systemPrompt } = body;
+    const { messages, provider, model, temperature, maxOutputTokens, systemPrompt, knowledgeBaseId } = body;
 
     // 基础参数校验：messages 必须为数组，避免后续转换异常
     if (!Array.isArray(messages)) {
@@ -173,13 +188,39 @@ export async function POST(req: Request) {
     // streamText 需要的是 model/core messages，因此先转换格式。
     const modelMessages = await convertToModelMessages(messages);
 
+    // RAG 检索：取最后一条用户消息作为查询，从 pgvector 检索相关知识库内容，
+    // 再用 LangChain PromptTemplate 拼入 system prompt。
+    // 检索失败只记录日志，不阻塞对话，避免 embedding 服务异常时聊天完全不可用。
+    let contextualSystemPrompt = systemPrompt?.trim() ?? '';
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
+
+    if (lastUserMessage) {
+      try {
+        const query = getMessageText(lastUserMessage);
+        if (query.trim()) {
+          const chunks = await retrieveRelevantChunks(query, {
+            knowledgeBaseId,
+            topK: 5,
+          });
+          if (chunks.length > 0) {
+            contextualSystemPrompt = await buildRagSystemPrompt({
+              basePrompt: contextualSystemPrompt,
+              chunks,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('RAG retrieval error:', error);
+      }
+    }
+
     const result = streamText({
       model: getModel(resolvedProvider, resolvedModel),
       messages: modelMessages,
       temperature,
       maxOutputTokens,
-      // 仅当 systemPrompt 非空时传入，避免部分 Provider（如 Bailian）对空 system 报错
-      ...(systemPrompt?.trim() ? { system: systemPrompt } : {}),
+      // 仅当 systemPrompt（含检索上下文）非空时传入，避免部分 Provider 对空 system 报错
+      ...(contextualSystemPrompt ? { system: contextualSystemPrompt } : {}),
     });
 
     // 注：toUIMessageStreamResponse 在 ai v7 已标记 deprecated，与 DefaultChatTransport 配套可用

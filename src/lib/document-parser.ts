@@ -15,6 +15,11 @@ export const SUPPORTED_DOCUMENT_TYPES = new Set([
   'text/x-markdown',
 ]);
 
+/** 提取 MIME 类型的主类型，去掉 charset 等后缀 */
+export function normalizeMimeType(mimeType: string): string {
+  return mimeType.split(';')[0].trim().toLowerCase();
+}
+
 /** 根据文件扩展名推断 MIME 类型，用于浏览器 MIME 识别不准时的兜底 */
 export function inferMimeTypeFromExtension(fileName: string): string | undefined {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -33,7 +38,7 @@ export function inferMimeTypeFromExtension(fileName: string): string | undefined
 
 /** 判断文件类型是否受支持 */
 export function isSupportedDocumentType(mimeType: string): boolean {
-  return SUPPORTED_DOCUMENT_TYPES.has(mimeType);
+  return SUPPORTED_DOCUMENT_TYPES.has(normalizeMimeType(mimeType));
 }
 
 /**

@@ -18,10 +18,13 @@ import { Check, Copy, RefreshCw } from 'lucide-react';
 import type { UIMessage } from 'ai';
 import { cn } from '@/src/lib/utils';
 import { useStreamingText } from '@/src/hooks/useStreamingText';
+import { MessageSources } from './MessageSources';
 
 interface ChatMessageProps {
   /** AI SDK 的 UI 消息对象 */
   message: UIMessage;
+  /** 当前 AI 消息对应的用户问题；assistant 消息用于显示参考来源 */
+  query?: string;
   /** 是否正处于流式生成中：仅最后一条 assistant 消息为 true */
   isStreaming?: boolean;
   /** 重新生成回调：仅对需要展示“重新生成”按钮的 assistant 消息传入 */
@@ -112,6 +115,7 @@ function CodeCopyButton({ code }: { code: string }) {
  */
 function ChatMessageComponent({
   message,
+  query,
   isStreaming,
   onRegenerate,
   isRegenerating,
@@ -221,6 +225,9 @@ function ChatMessageComponent({
           </button>
         </div>
       )}
+
+      {/* 参考来源：assistant 消息下方展示检索到的文档片段 */}
+      {!isUser && query && <MessageSources query={query} />}
     </div>
   );
 }
@@ -240,6 +247,7 @@ function chatMessagePropsAreEqual(
   if (prev.isStreaming || next.isStreaming) return false;
   if (prev.isRegenerating !== next.isRegenerating) return false;
   if (prev.onRegenerate !== next.onRegenerate) return false;
+  if (prev.query !== next.query) return false;
   if (prev.message.id !== next.message.id) return false;
   if (getMessageText(prev.message) !== getMessageText(next.message)) return false;
   return true;

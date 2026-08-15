@@ -85,8 +85,8 @@ model DocumentChunk {
   chunkIndex Int
   /** 切分后的文本内容 */
   content    String  @db.Text
-  /** 向量嵌入；pgvector 扩展，1536 维 */
-  embedding  Unsupported("vector(1536)")?
+  /** 向量嵌入；pgvector 扩展，1024 维，对应百炼 text-embedding-v3 */
+  embedding  Unsupported("vector(1024)")?
   /** chunk 级元数据：如页码、段落位置等 */
   metadata   Json?
 

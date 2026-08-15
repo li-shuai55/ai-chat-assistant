@@ -7,8 +7,9 @@
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import multer from 'multer';
-import { parseDocument, isSupportedDocumentType, inferMimeTypeFromExtension } from '@/src/lib/document-parser';
+import { parseDocument, isSupportedDocumentType, inferMimeTypeFromExtension, normalizeMimeType } from '@/src/lib/document-parser';
 import { splitText } from '@/src/lib/text-splitter';
+import { vectorizeDocument } from '@/src/lib/vectorize';
 import { prisma } from '@/src/lib/db';
 
 // 禁用 Next.js 默认 body parser，让 multer 处理 multipart 流
@@ -61,6 +62,7 @@ interface UploadSuccessResponse {
   documentId: string;
   fileName: string;
   totalChunks: number;
+  vectorizedChunks: number;
 }
 
 export default async function handler(
@@ -94,13 +96,21 @@ export default async function handler(
   }
 
   // 部分浏览器/系统可能把 TXT/Markdown/PDF 识别为 application/octet-stream，
-  // 这里按扩展名做一次兜底，避免合法文件因 MIME 类型不准被拒绝。
-  const detectedMimeType = isSupportedDocumentType(file.mimetype)
-    ? file.mimetype
+  // 也可能在 MIME 后带 charset（如 text/plain; charset=utf-8）。
+  // 这里先 normalize，再按扩展名兜底，避免合法文件被拒绝。
+  const normalizedMimeType = normalizeMimeType(file.mimetype);
+  const detectedMimeType = isSupportedDocumentType(normalizedMimeType)
+    ? normalizedMimeType
     : inferMimeTypeFromExtension(file.originalname);
 
   if (!detectedMimeType || !isSupportedDocumentType(detectedMimeType)) {
-    console.warn('[Upload] 400: 不支持的文件类型:', file.mimetype, '文件名:', file.originalname);
+    console.warn('[Upload] 400: 不支持的文件类型:', {
+      originalMimeType: file.mimetype,
+      normalizedMimeType,
+      detectedMimeType,
+      fileName: file.originalname,
+      knowledgeBaseId,
+    });
     return res.status(400).json({
       error: `不支持的文件类型：${file.mimetype}，目前仅支持 PDF、TXT、MD`,
     });
@@ -132,7 +142,7 @@ export default async function handler(
       data: {
         knowledgeBaseId,
         fileName: file.originalname,
-        fileType: file.mimetype,
+        fileType: detectedMimeType,
         fileSize: file.size,
         status: 'PROCESSING',
         totalChunks: chunks.length,
@@ -151,16 +161,14 @@ export default async function handler(
       });
     }
 
-    // 6. 标记为已完成
-    await prisma.document.update({
-      where: { id: document.id },
-      data: { status: 'COMPLETED' },
-    });
+    // 6. 向量化：为所有 chunk 生成 embedding 并写入 pgvector
+    const vectorizedChunks = await vectorizeDocument(document.id);
 
     return res.status(200).json({
       documentId: document.id,
       fileName: document.fileName,
       totalChunks: chunks.length,
+      vectorizedChunks,
     });
   } catch (error) {
     console.error('Upload handler error:', error);
