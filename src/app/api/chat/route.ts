@@ -178,7 +178,8 @@ export async function POST(req: Request) {
       messages: modelMessages,
       temperature,
       maxOutputTokens,
-      system: systemPrompt,
+      // 仅当 systemPrompt 非空时传入，避免部分 Provider（如 Bailian）对空 system 报错
+      ...(systemPrompt?.trim() ? { system: systemPrompt } : {}),
     });
 
     // 注：toUIMessageStreamResponse 在 ai v7 已标记 deprecated，与 DefaultChatTransport 配套可用

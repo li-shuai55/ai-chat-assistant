@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Square } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useKeyboardInset } from '@/src/hooks/useKeyboardInset';
+import { ChatUploadButton } from './ChatUploadButton';
 
 interface ChatInputProps {
   /** 提交回调（已过滤空文本） */
@@ -70,6 +71,7 @@ export function ChatInput({
       }}
     >
       <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-input bg-surface px-3 py-2 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+        <ChatUploadButton />
         <textarea
           ref={textareaRef}
           value={input}

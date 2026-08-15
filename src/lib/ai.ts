@@ -110,8 +110,12 @@ const PROVIDER_INSTANCES: Record<
   // 各 SDK 的 provider 函数签名略有不同，统一按 `(modelId: string) => LanguageModel` 使用
   (modelId: string) => LanguageModel
 > = {
-  bailian: (modelId) => bailian(modelId),
-  openai: (modelId) => openai(modelId),
+  // 使用 .chat() 强制走 Chat Completions 协议。
+  // createOpenAI 的默认 languageModel 在较新版本会走 Responses API，
+  // 而百炼 / 大部分第三方 OpenAI 兼容端点只支持 /chat/completions，
+  // 直接调用 provider() 会导致 DashScope 返回 QwenAgentError。
+  bailian: (modelId) => bailian.chat(modelId),
+  openai: (modelId) => openai.chat(modelId),
   anthropic: (modelId) => anthropic(modelId),
   deepseek: (modelId) => deepseek(modelId as 'deepseek-chat' | 'deepseek-reasoner'),
 };
