@@ -15,6 +15,7 @@ import { getModel, isSupportedModel, SUPPORTED_PROVIDERS } from '@/src/lib/ai';
 import type { ModelProvider } from '@/src/types/chat';
 import { retrieveRelevantChunks } from '@/src/lib/retrieval';
 import { buildRagSystemPrompt } from '@/src/lib/rag-prompt';
+import { chatTools } from '@/src/lib/tools';
 import { NextResponse } from 'next/server';
 
 /** 客户端请求体中携带的模型配置字段 */
@@ -219,6 +220,8 @@ export async function POST(req: Request) {
       messages: modelMessages,
       temperature,
       maxOutputTokens,
+      // 注入模型可调用的工具集合，启用 Agent / Tool Use
+      tools: chatTools,
       // 仅当 systemPrompt（含检索上下文）非空时传入，避免部分 Provider 对空 system 报错
       ...(contextualSystemPrompt ? { system: contextualSystemPrompt } : {}),
     });
